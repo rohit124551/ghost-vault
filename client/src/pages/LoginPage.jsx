@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowRight, CheckCircle2, Shield } from 'lucide-react';
+import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import './LoginPage.css';
 
 export default function LoginPage() {
   const { signInWithMagicLink } = useAuth();
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [email, setEmail]   = useState('');
+  const [sent, setSent]     = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]   = useState('');
   const inputRef = useRef(null);
 
   const handleSubmit = async (e) => {
@@ -15,21 +16,17 @@ export default function LoginPage() {
     if (!email.trim()) return;
     setLoading(true);
     setError('');
-
-    // Remove error class before attempt
     inputRef.current?.classList.remove('input--error');
 
     const { error: err } = await signInWithMagicLink(email.trim());
     setLoading(false);
 
     if (err) {
-      // Trigger shake animation
       inputRef.current?.classList.add('input--error');
       setTimeout(() => inputRef.current?.classList.remove('input--error'), 400);
-
       const msg = err.message?.toLowerCase() || '';
       if (msg.includes('not authorized') || msg.includes('signup') || msg.includes('disabled')) {
-        setError('This app is private. Access not allowed.');
+        setError('This vault is private.');
       } else {
         setError(err.message || 'Something went wrong. Please try again.');
       }
@@ -39,90 +36,49 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--bg)',
-      padding: 20,
-    }}>
-      <div style={{ width: '100%', maxWidth: 340 }}>
+    <div className="login-root">
+      <div className="login-card">
 
-        {/* Logo + Tagline */}
-        <div style={{ marginBottom: 36, textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 }}>
-            <div style={{
-              width: 36, height: 36,
-              background: 'var(--blue)',
-              borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Shield size={18} color="#fff" />
-            </div>
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 20,
-              fontWeight: 700,
-              color: 'var(--text-1)',
-              letterSpacing: '-0.3px',
-            }}>Ghost Vault</span>
-          </div>
-          <p style={{ color: 'var(--text-2)', fontSize: 13 }}>
-            Your personal screenshot vault &amp; quick-share tool
-          </p>
+        {/* ── Logo ── */}
+        <div className="login-brand">
+          <span className="login-logo">GhostVault</span>
+          <p className="login-tagline">Paste. Share. Vanish.</p>
         </div>
 
         {sent ? (
-          /* ── Confirmation screen ── */
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-            <CheckCircle2 size={36} color="var(--green)" />
-            <div style={{ fontWeight: 600, fontSize: 16 }}>Check your email</div>
-            <p style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.6 }}>
-              Email sent to <strong style={{ color: 'var(--text-1)' }}>{email}</strong>.<br />
-              Click the link inside to sign in.
+          /* ── Confirmation ── */
+          <div className="login-confirm">
+            <CheckCircle2 size={40} color="var(--success)" strokeWidth={1.5} />
+            <h2 className="login-confirm-heading">Check your inbox</h2>
+            <p className="login-confirm-sub">
+              Magic link sent to{' '}
+              <span className="login-confirm-email">{email}</span>
             </p>
             <button
               className="btn btn-ghost btn-sm"
-              style={{ marginTop: 4 }}
               onClick={() => { setSent(false); setEmail(''); }}
             >
-              Wrong email? Try again
+              Wrong email? Go back
             </button>
           </div>
         ) : (
-          /* ── Login form ── */
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--text-2)', marginBottom: 6 }}>
-                Email address
-              </label>
-              <input
-                id="email"
-                ref={inputRef}
-                type="email"
-                className="input"
-                placeholder="you@example.com"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setError(''); }}
-                required
-                autoFocus
-                style={error ? { borderColor: 'var(--red)' } : {}}
-              />
-            </div>
+          /* ── Form ── */
+          <form className="login-form" onSubmit={handleSubmit}>
+            <input
+              id="email"
+              ref={inputRef}
+              type="email"
+              className="input"
+              placeholder="your@email.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(''); }}
+              required
+              autoFocus
+              style={error ? { borderColor: 'var(--danger)' } : {}}
+            />
 
             {error && (
-              <div style={{
-                color: 'var(--red)',
-                fontSize: 12,
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.2)',
-                padding: '8px 12px',
-                borderRadius: 'var(--r-md)',
-                lineHeight: 1.5,
-              }}>
-                {error}
-              </div>
+              <div className="login-error">{error}</div>
             )}
 
             <button
@@ -130,7 +86,7 @@ export default function LoginPage() {
               type="submit"
               className="btn btn-primary btn-lg"
               disabled={loading || !email}
-              style={{ justifyContent: 'center', marginTop: 4 }}
+              style={{ width: '100%', justifyContent: 'center' }}
             >
               {loading
                 ? <><span className="spinner" /> Sending…</>
@@ -138,8 +94,8 @@ export default function LoginPage() {
               }
             </button>
 
-            <p style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', lineHeight: 1.6 }}>
-              We&apos;ll email you a sign-in link. No password needed.
+            <p className="login-hint">
+              No password. Just click the link in your email.
             </p>
           </form>
         )}

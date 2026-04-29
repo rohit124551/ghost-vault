@@ -105,7 +105,7 @@ export default function GuestRoomPage() {
           Room <span className="token-text">{token}</span>
         </span>
         <span className="guest-status">
-          <span className="active-dot" /> Live
+          <span className="guest-status-dot" /> Live
         </span>
       </div>
 

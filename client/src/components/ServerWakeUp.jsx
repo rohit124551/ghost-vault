@@ -3,15 +3,13 @@ import './ServerWakeUp.css';
 
 export default function ServerWakeUp() {
   const [elapsed, setElapsed] = useState(0);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady]     = useState(false);
 
-  // Count up elapsed seconds
   useEffect(() => {
     const id = setInterval(() => setElapsed(s => s + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Listen for parent to signal server is awake
   useEffect(() => {
     const handler = () => setReady(true);
     window.addEventListener('sv:server-ready', handler);
@@ -22,31 +20,34 @@ export default function ServerWakeUp() {
 
   return (
     <div className="wakeup-root">
-      <div className="wakeup-card">
-        {/* Logo */}
-        <div className="wakeup-logo">
-          <div className="wakeup-monogram">GV</div>
-          <span className="wakeup-brand">Ghost Vault</span>
-        </div>
+      <div className="wakeup-content">
 
-        {/* Icon */}
-        <div className={`wakeup-icon ${ready ? 'wakeup-icon--ready' : ''}`}>
+        {/* Logo */}
+        <span className="wakeup-logo">GhostVault</span>
+
+        {/* Ghost icon — pulses while waiting, turns green when ready */}
+        <div className={`wakeup-ghost ${ready ? 'wakeup-ghost--ready' : ''}`}>
           {ready ? (
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            /* Checkmark */
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           ) : (
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
+            /* Ghost SVG outline */
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10A8 8 0 0 0 12 2z" />
+              <circle cx="9" cy="10" r="1" fill="currentColor" />
+              <circle cx="15" cy="10" r="1" fill="currentColor" />
             </svg>
           )}
         </div>
 
-        {/* Text */}
+        {/* Heading */}
         <h1 className="wakeup-heading">
-          {ready ? 'Server is ready!' : 'Starting up…'}
+          {ready ? 'Vault is ready.' : 'Starting up...'}
         </h1>
+
+        {/* Subtext */}
         <p className="wakeup-sub">
           {ready
             ? 'Redirecting you now…'
@@ -54,18 +55,18 @@ export default function ServerWakeUp() {
         </p>
 
         {/* Progress bar */}
-        <div className="wakeup-progress-track">
+        <div className="wakeup-track">
           <div
-            className={`wakeup-progress-fill ${ready ? 'wakeup-progress-fill--done' : ''}`}
+            className={`wakeup-fill ${ready ? 'wakeup-fill--done' : ''}`}
             style={{ width: ready ? '100%' : `${progress}%` }}
           />
         </div>
 
         {/* Counter */}
         {!ready && (
-          <div className="wakeup-counter">
-            Waiting… <span className="wakeup-elapsed">{elapsed}s</span>
-          </div>
+          <p className="wakeup-counter">
+            Waiting... <span className="wakeup-elapsed">{elapsed}s</span>
+          </p>
         )}
       </div>
     </div>

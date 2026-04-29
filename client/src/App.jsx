@@ -6,13 +6,13 @@ import ServerWakeUp from './components/ServerWakeUp';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
 import AuthCallback from './pages/AuthCallback';
-import DashboardPage from './pages/DashboardPage';
+import DashboardPage from './pages/DashboardPage.jsx';
 import GuestRoomPage from './pages/GuestRoomPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="loading-full"><div className="spinner spinner-lg" /></div>;
+  if (loading) return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-base)' }}><div className="spinner spinner-lg" /></div>;
   return user ? children : <Navigate to="/login" replace />;
 }
 
@@ -20,7 +20,7 @@ function OwnerLayout({ children }) {
   return (
     <div className="app-layout">
       <Sidebar />
-      <main className="main-content">{children}</main>
+      <main className="app-main">{children}</main>
     </div>
   );
 }
@@ -58,24 +58,24 @@ export default function App() {
   // Show wake-up screen while server is starting
   if (checking || !awake) return <ServerWakeUp />;
 
-  if (authLoading) return <div className="loading-full"><div className="spinner spinner-lg" /></div>;
+  if (authLoading) return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-base)' }}><div className="spinner spinner-lg" /></div>;
 
   return (
     <>
       <PanicMode />
       <Routes>
-        <Route path="/login"         element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/login"         element={user ? <Navigate to="/dash" /> : <LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/r/:token"      element={<GuestRoomPage />} />
         <Route path="/404"           element={<NotFoundPage />} />
 
-        <Route path="/dashboard" element={
+        <Route path="/dash" element={
           <ProtectedRoute>
             <OwnerLayout><DashboardPage /></OwnerLayout>
           </ProtectedRoute>
         } />
 
-        <Route path="/"  element={<Navigate to={user ? '/dashboard' : '/login'} />} />
+        <Route path="/"  element={<Navigate to={user ? '/dash' : '/login'} />} />
         <Route path="*"  element={<Navigate to="/404" />} />
       </Routes>
     </>

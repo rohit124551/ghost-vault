@@ -12,7 +12,7 @@ export default function AuthCallback() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate('/dashboard', { replace: true });
+        navigate('/dash', { replace: true });
       } else {
         navigate('/login', { replace: true });
       }

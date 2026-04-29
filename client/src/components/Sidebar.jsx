@@ -14,29 +14,35 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      {/* Logo */}
+      {/* ── Logo ── */}
       <div className="sb-brand">
-        <div className="sb-monogram">GV</div>
-        <span className="sb-name">Ghost Vault</span>
+        <span className="sb-logo">GhostVault</span>
       </div>
 
-      <div className="divider" style={{ margin: '10px 12px' }} />
+      <div className="divider" style={{ margin: '0 0' }} />
 
-      {/* Nav */}
+      {/* ── Nav ── */}
       <nav className="sb-nav">
-        <NavLink to="/dashboard" className={({ isActive }) => `sb-link ${isActive ? 'sb-link--active' : ''}`}>
+        <NavLink
+          to="/dash"
+          className={({ isActive }) => `sb-link${isActive ? ' sb-link--active' : ''}`}
+        >
           <LayoutDashboard size={14} />
           <span>Dashboard</span>
         </NavLink>
       </nav>
 
-      {/* Footer */}
+      {/* ── Footer ── */}
       <div className="sb-footer">
         <div className="sb-user">
           <div className="sb-avatar">{user?.email?.[0]?.toUpperCase()}</div>
-          <div className="sb-email">{user?.email}</div>
+          <span className="sb-email truncate">{user?.email}</span>
         </div>
-        <button className="btn btn-ghost btn-sm btn-icon" onClick={handleSignOut} data-tip="Sign out">
+        <button
+          className="btn btn-ghost btn-icon btn-sm"
+          onClick={handleSignOut}
+          title="Sign out"
+        >
           <LogOut size={13} />
         </button>
       </div>
