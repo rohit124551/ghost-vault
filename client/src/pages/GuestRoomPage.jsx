@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Timer, Lock } from 'lucide-react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import ChatWindow from '../components/ChatWindow';
@@ -26,8 +26,6 @@ export default function GuestRoomPage() {
     axios.get(`${API_URL}/api/rooms/${token}/valid`)
       .then(async res => {
         if (!res.data.valid) {
-          if (res.data.reason === 'expired') return setStatus('expired');
-          if (res.data.reason === 'revoked') return setStatus('revoked');
           return navigate('/404', { replace: true });
         }
         
@@ -51,13 +49,13 @@ export default function GuestRoomPage() {
     
     const check = () => {
       if (new Date(expiresAt) < new Date()) {
-        setStatus('expired');
+        navigate('/404', { replace: true });
       }
     };
     
     const id = setInterval(check, 1000);
     return () => clearInterval(id);
-  }, [expiresAt, status]);
+  }, [expiresAt, status, navigate]);
 
   // Socket.IO
   useEffect(() => {
@@ -72,11 +70,11 @@ export default function GuestRoomPage() {
     });
 
     s.on('room_revoked', () => {
-      setStatus('revoked');
+      navigate('/404', { replace: true });
     });
 
     return () => s.disconnect();
-  }, [token]);
+  }, [token, navigate]);
 
   // Guest sends text
   const handleSendText = async (text) => {
@@ -107,26 +105,6 @@ export default function GuestRoomPage() {
     return (
       <div className="guest-root guest-center">
         <div className="spinner spinner-lg" />
-      </div>
-    );
-  }
-
-  if (status === 'revoked' || status === 'expired') {
-    const isExp = status === 'expired';
-    return (
-      <div className="guest-root guest-center">
-        <div className="guest-revoked">
-          <div className="guest-revoked-icon">{isExp ? '⌛' : '🔒'}</div>
-          <h1>{isExp ? 'Link Expired' : 'Link Revoked'}</h1>
-          <p>
-            {isExp 
-              ? 'This temporary sharing link has reached its time limit.' 
-              : 'This sharing link has been closed by the owner.'}
-          </p>
-          <button className="btn btn-primary" onClick={() => navigate('/')} style={{ marginTop: 20 }}>
-            Go Home
-          </button>
-        </div>
       </div>
     );
   }

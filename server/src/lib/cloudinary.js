@@ -28,8 +28,7 @@ const roomFileStorage = new CloudinaryStorage({
   cloudinary,
   params: (req, file) => ({
     folder: `snapvault/rooms/${req.params.token}`,
-    resource_type: file.mimetype.startsWith('image/') ? 'image' : 'raw',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'zip'],
+    resource_type: 'auto',
   }),
 });
 
