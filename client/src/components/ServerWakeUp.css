@@ -1,0 +1,134 @@
+.wakeup-root {
+  min-height: 100vh;
+  background: #080808;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.wakeup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  max-width: 340px;
+  width: 100%;
+}
+
+.wakeup-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wakeup-monogram {
+  width: 32px;
+  height: 32px;
+  background: #3b82f6;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.wakeup-brand {
+  font-family: 'Geist Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f0f0f0;
+}
+
+/* Pulsing icon */
+@keyframes wakeup-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+  50%       { box-shadow: 0 0 0 12px rgba(59,130,246,0); }
+}
+@keyframes wakeup-spin {
+  to { transform: rotate(360deg); }
+}
+
+.wakeup-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  animation: wakeup-pulse 2s ease-in-out infinite;
+  transition: background 0.4s, border-color 0.4s, color 0.4s;
+}
+
+.wakeup-icon svg {
+  animation: wakeup-spin 3s linear infinite;
+}
+
+.wakeup-icon--ready {
+  background: rgba(34,197,94,0.12);
+  border-color: rgba(34,197,94,0.3);
+  color: #22c55e;
+  animation: none;
+}
+
+.wakeup-icon--ready svg {
+  animation: none;
+}
+
+.wakeup-heading {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f0f0f0;
+  margin: 0;
+}
+
+.wakeup-sub {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+  max-width: 280px;
+}
+
+/* Progress bar */
+.wakeup-progress-track {
+  width: 100%;
+  height: 2px;
+  background: #1c1c1c;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.wakeup-progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.wakeup-progress-fill--done {
+  background: #22c55e;
+  transition: width 0.3s ease-out;
+}
+
+.wakeup-counter {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 12px;
+  color: #555;
+}
+
+.wakeup-elapsed {
+  font-family: 'Geist Mono', monospace;
+  color: #22d3ee;
+}

@@ -1,0 +1,150 @@
+.rooms-page { max-width: 1100px; }
+
+.rooms-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rooms-section { }
+
+.rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.room-card {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.room-card:hover { transform: translateY(-2px); border-color: var(--border-hover); }
+
+.room-card.revoked {
+  opacity: 0.55;
+}
+
+.room-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.room-card-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+}
+
+.room-link-text-sm {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--cyan);
+  flex: 1;
+}
+
+.room-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.room-card-skeleton {
+  height: 160px;
+  width: 280px;
+  background: var(--bg-raised);
+  border-radius: var(--radius-lg);
+  animation: shimmer 1.5s infinite;
+}
+
+/* QR Modal */
+.qr-modal { text-align: left; }
+
+.qr-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.room-link-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.room-link-text {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--cyan);
+  word-break: break-all;
+}
+
+/* Messages modal */
+.messages-modal {
+  max-width: 580px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.message-bubble {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.message-content { margin-bottom: 8px; }
+
+.message-img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.room-token {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--cyan);
+}

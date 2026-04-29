@@ -1,0 +1,13 @@
+{
+  "name": "snapvault",
+  "version": "1.0.0",
+  "description": "SnapVault monorepo — personal screenshot vault & file sharing",
+  "private": true,
+  "scripts": {
+    "dev": "start \"SnapVault Server\" cmd /k \"cd server && npm run dev\" && start \"SnapVault Client\" cmd /k \"cd client && npm run dev\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "cd server && npm install && cd ../client && npm install"
+  },
+  "license": "ISC"
+}
