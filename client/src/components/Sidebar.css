@@ -58,11 +58,11 @@
 
 /* Footer */
 .sb-footer {
-  padding: 12px 10px;
+  padding: 16px 12px;
   border-top: 1px solid var(--border);
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
 }
 .sb-user {
   flex: 1;

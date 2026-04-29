@@ -106,11 +106,12 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
    - canDelete          boolean
    - loading            boolean
    - myRole             'owner' | 'guest'
+   - disabled           boolean (if room is expired/revoked)
    ══════════════════════════════════════════════ */
 export default function ChatWindow({
   messages, onSendText, onSendFile,
   onDelete, canDelete, loading,
-  myRole = 'owner'
+  myRole = 'owner', disabled = false
 }) {
   const [text, setText]       = useState('');
   const [sending, setSending] = useState(false);
@@ -123,7 +124,7 @@ export default function ChatWindow({
   }, [messages]);
 
   const handleSend = async () => {
-    if (!text.trim() || sending) return;
+    if (!text.trim() || sending || disabled) return;
     setSending(true);
     await onSendText(text.trim());
     setText('');
@@ -135,6 +136,7 @@ export default function ChatWindow({
   };
 
   const handleFileSelect = (e) => {
+    if (disabled) return;
     const f = e.target.files?.[0];
     if (!f) return;
     setFilePreview({ file: f, name: f.name });
@@ -142,7 +144,7 @@ export default function ChatWindow({
   };
 
   const handleFileSend = async () => {
-    if (!filePreview || sending) return;
+    if (!filePreview || sending || disabled) return;
     setSending(true);
     await onSendFile(filePreview.file);
     setFilePreview(null);
@@ -179,7 +181,7 @@ export default function ChatWindow({
       </div>
 
       {/* ── File preview chip ── */}
-      {filePreview && (
+      {filePreview && !disabled && (
         <div className="chat-file-preview">
           <File size={13} />
           <span className="chat-file-preview-name">{filePreview.name}</span>
@@ -197,42 +199,51 @@ export default function ChatWindow({
       )}
 
       {/* ── Input bar ── */}
-      <div className="chat-bar">
-        <button
-          className="chat-attach"
-          onClick={() => fileInputRef.current?.click()}
-          title="Attach file"
-          disabled={sending}
-        >
-          <Paperclip size={16} />
-        </button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileSelect}
-          style={{ display: 'none' }}
-        />
-        <textarea
-          className="chat-input"
-          placeholder="Message..."
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={handleKey}
-          rows={1}
-          disabled={sending}
-        />
-        <button
-          className={`chat-send ${text.trim() ? 'chat-send--active' : ''}`}
-          onClick={handleSend}
-          disabled={!text.trim() || sending}
-          title="Send"
-        >
-          {sending
-            ? <span className="spinner" style={{width:14,height:14}} />
-            : <Send size={14} />
-          }
-        </button>
-      </div>
+      {disabled ? (
+        <div className="chat-bar chat-bar--disabled">
+          <div className="chat-disabled-notice">
+            <X size={14} style={{ opacity: 0.7 }} />
+            <span>Chat expired/revoked</span>
+          </div>
+        </div>
+      ) : (
+        <div className="chat-bar">
+          <button
+            className="chat-attach"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach file"
+            disabled={sending}
+          >
+            <Paperclip size={16} />
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+          <textarea
+            className="chat-input"
+            placeholder="Message..."
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={handleKey}
+            rows={1}
+            disabled={sending}
+          />
+          <button
+            className={`chat-send ${text.trim() ? 'chat-send--active' : ''}`}
+            onClick={handleSend}
+            disabled={!text.trim() || sending}
+            title="Send"
+          >
+            {sending
+              ? <span className="spinner" style={{width:14,height:14}} />
+              : <Send size={14} />
+            }
+          </button>
+        </div>
+      )}
     </div>
   );
 }

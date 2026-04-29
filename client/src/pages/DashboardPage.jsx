@@ -4,6 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import { useTheme } from '../contexts/ThemeContext';
 import api from '../lib/api';
 import ChatWindow from '../components/ChatWindow';
 import {
@@ -25,6 +26,12 @@ function timeLeft(expiresAt) {
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ${s % 60}s`;
   return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+function isRoomValid(room) {
+  if (!room.is_active) return false;
+  if (room.expires_at && new Date(room.expires_at) < new Date()) return false;
+  return true;
 }
 
 // ── Fix 1: Name Dialog — Local Save PRIMARY, Upload secondary ─────────────────
@@ -140,6 +147,7 @@ function CreateRoomModal({ onCreate, onClose }) {
 // ── QR Modal ──────────────────────────────────────────────────────────────────
 function QRModal({ room, onClose, onRevoke }) {
   const [countdown, setCountdown] = useState(() => timeLeft(room.expiresAt));
+  const { theme } = useTheme();
   const link = `${BASE_URL}/r/${room.token}`;
 
   useEffect(() => {
@@ -158,7 +166,13 @@ function QRModal({ room, onClose, onRevoke }) {
           <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}><X size={13} /></button>
         </div>
         <div className="qr-box">
-          <QRCodeSVG value={link} size={180} bgColor="transparent" fgColor="#f0f0f0" level="M" />
+          <QRCodeSVG 
+            value={link} 
+            size={180} 
+            bgColor="transparent" 
+            fgColor={theme === 'dark' ? '#f0f0f0' : '#0f172a'} 
+            level="M" 
+          />
         </div>
         <div className="link-row">
           <code className="link-text">{link}</code>
@@ -254,12 +268,12 @@ function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat }) {
   };
 
   return (
-    <div className={`room-row ${!room.is_active ? 'room-row--inactive' : ''}`}>
+    <div className={`room-row ${!isRoomValid(room) ? 'room-row--inactive' : ''}`}>
       <div className="room-row-left">
-        <span className={`active-dot ${!room.is_active ? 'active-dot--inactive' : ''}`} />
+        <span className={`active-dot ${!isRoomValid(room) ? 'active-dot--inactive' : ''}`} />
         <span className="token-text">{room.token}</span>
         {room.view_once && <span className="badge badge-amber"><Eye size={9} /> once</span>}
-        {room.is_active ? (
+        {isRoomValid(room) ? (
           countdown && <span className="badge badge-blue"><Timer size={9} /> {countdown}</span>
         ) : (
           <span className="badge badge-grey">Expired/Revoked</span>
@@ -472,6 +486,29 @@ export default function DashboardPage() {
     <div className="dash">
       {uploadProgress && <div className="upload-progress-bar"><div className="progress-bar" /></div>}
 
+      {/* ── Welcome Header ── */}
+      <header className="dash-header">
+        <div className="dash-welcome">
+          <h1 className="text-display">Systems Online.</h1>
+          <p className="text-secondary">Welcome back, <span className="text-cyan mono">{user?.email?.split('@')[0]}</span>. Everything is secure.</p>
+        </div>
+        
+        <div className="dash-stats">
+          <div className="stat-card">
+            <span className="stat-label">Active Rooms</span>
+            <span className="stat-value">{rooms.filter(isRoomValid).length}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Total Files</span>
+            <span className="stat-value">{totalUploads}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Vault Status</span>
+            <span className="stat-value text-success">Secure</span>
+          </div>
+        </div>
+      </header>
+
       {/* Paste Zone */}
       <div {...getRootProps()} className={`paste-zone ${isDragActive ? 'paste-zone--drag' : ''} ${pasteFlash ? 'paste-zone--flash paste-flash' : ''}`}>
         <input {...getInputProps()} />
@@ -515,10 +552,10 @@ export default function DashboardPage() {
           </div>
           
           <div className="section-subtitle">Active</div>
-          {rooms.filter(r => r.is_active).length === 0
+          {rooms.filter(isRoomValid).length === 0
             ? <div className="empty" style={{ padding: '12px 0', border: '1px dashed var(--border)', borderRadius: 'var(--r-md)' }}><Link2 size={16} /><p className="text-xs">No active rooms</p></div>
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {rooms.filter(r => r.is_active).map(r => (
+                {rooms.filter(isRoomValid).map(r => (
                   <RoomRow key={r.id} room={r}
                     onQR={() => setQrRoom({ token: r.token, expiresAt: r.expires_at, view_once: r.view_once })}
                     onRevoke={() => handleRevoke(r.token)}
@@ -530,10 +567,10 @@ export default function DashboardPage() {
           }
 
           <div className="section-subtitle" style={{ marginTop: 24 }}>History</div>
-          {rooms.filter(r => !r.is_active).length === 0
+          {rooms.filter(r => !isRoomValid(r)).length === 0
             ? <div className="empty" style={{ padding: '12px 0' }}><p className="text-xs text-ghost">History is empty</p></div>
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {rooms.filter(r => !r.is_active).map(r => (
+                {rooms.filter(r => !isRoomValid(r)).map(r => (
                   <RoomRow key={r.id} room={r}
                     onChat={() => openChat(r)}
                     onPermanentDelete={() => handlePermanentDelete(r.token)}
@@ -585,6 +622,7 @@ export default function DashboardPage() {
                 canDelete={true}
                 loading={chatLoading}
                 myRole="owner"
+                disabled={!isRoomValid(chatRoom)}
               />
             </div>
           </div>

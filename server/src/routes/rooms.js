@@ -21,13 +21,17 @@ router.get('/:token/valid', async (req, res, next) => {
       .eq('token', token)
       .single();
 
-    if (error || !room || !room.is_active) {
-      return res.json({ valid: false });
+    if (error || !room) {
+      return res.json({ valid: false, reason: 'not_found' });
+    }
+
+    if (!room.is_active) {
+      return res.json({ valid: false, reason: 'revoked' });
     }
 
     if (room.expires_at && new Date(room.expires_at) < new Date()) {
       await supabase.from('rooms').update({ is_active: false }).eq('token', token);
-      return res.json({ valid: false });
+      return res.json({ valid: false, reason: 'expired' });
     }
 
     res.json({

@@ -286,3 +286,19 @@
 }
 .chat-send--active:hover { background: var(--accent-hover); transform: scale(1.05); }
 .chat-send:disabled { cursor: not-allowed; }
+
+/* ── Disabled bar ── */
+.chat-bar--disabled {
+  justify-content: center;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border);
+}
+.chat-disabled-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-ghost);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

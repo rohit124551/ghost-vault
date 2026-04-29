@@ -1,10 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, LogOut } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import { LayoutDashboard, LogOut, Sun, Moon } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar() {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -34,17 +36,27 @@ export default function Sidebar() {
 
       {/* ── Footer ── */}
       <div className="sb-footer">
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+          <button
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+          </button>
+          <button
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={handleSignOut}
+            title="Sign out"
+          >
+            <LogOut size={13} />
+          </button>
+        </div>
+
         <div className="sb-user">
           <div className="sb-avatar">{user?.email?.[0]?.toUpperCase()}</div>
           <span className="sb-email truncate">{user?.email}</span>
         </div>
-        <button
-          className="btn btn-ghost btn-icon btn-sm"
-          onClick={handleSignOut}
-          title="Sign out"
-        >
-          <LogOut size={13} />
-        </button>
       </div>
     </aside>
   );

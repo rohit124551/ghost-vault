@@ -7,35 +7,100 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
 
 /* ── Design Tokens ── */
-:root {
-  /* Surfaces */
-  --bg-base:    #070708;
-  --bg-card:    #0f0f11;
-  --bg-hover:   #161618;
+:root[data-theme='dark'] {
+  /* Surfaces — Midnight Navy */
+  --bg-base:    #0f111a;
+  --bg-card:    #1a1d2b;
+  --bg-hover:   #23273a;
 
   /* Borders */
-  --border:        #1c1c1f;
-  --border-active: #2e2e33;
+  --border:        #232840;
+  --border-active: #333b5c;
 
   /* Text */
-  --text-primary:   #f0f0f2;
-  --text-secondary: #6b6b72;
-  --text-ghost:     #2e2e35;
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-ghost:     #475569;
 
-  /* Accent — indigo-blue */
-  --accent:      #5b6af0;
-  --accent-glow: rgba(91, 106, 240, 0.12);
-  --accent-hover:#6b7af8;
+  /* Accents — Cyber Violet & Cyan */
+  --accent:      #7c3aed;
+  --accent-glow: rgba(124, 58, 237, 0.15);
+  --accent-hover:#8b5cf6;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
 
   /* Semantic */
-  --cyan:    #22d3ee;
-  --danger:  #f0574a;
-  --success: #34d399;
+  --cyan:    #06b6d4;
+  --danger:  #f43f5e;
+  --success: #10b981;
   --warning: #f59e0b;
 
   /* Chat bubbles */
-  --bubble-mine:   #1e2a4a;
-  --bubble-theirs: #111113;
+  --bubble-mine:   #2e2a5e;
+  --bubble-theirs: #1a1e35;
+}
+
+:root[data-theme='light'] {
+  /* Surfaces — Safe White */
+  --bg-base:    #f1f5f9;
+  --bg-card:    #ffffff;
+  --bg-hover:   #f8fafc;
+
+  /* Borders */
+  --border:        #e2e8f0;
+  --border-active: #cbd5e1;
+
+  /* Text */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-ghost:     #94a3b8;
+
+  /* Accents — Solid Violet */
+  --accent:      #6d28d9;
+  --accent-glow: rgba(109, 40, 217, 0.08);
+  --accent-hover:#7c3aed;
+
+  /* Semantic */
+  --cyan:    #0891b2;
+  --danger:  #e11d48;
+  --success: #059669;
+  --warning: #d97706;
+
+  /* Chat bubbles */
+  --bubble-mine:   #6d28d9;
+  --bubble-theirs: #f1f5f9;
+
+  /* Shadows — Softer for light mode */
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-md: 0 12px 32px rgba(15,23,42,0.08);
+  --shadow-lg: 0 24px 64px rgba(15,23,42,0.12);
+}
+
+:root {
+  /* Default to dark if no attribute is set */
+  --bg-base:    #0f111a;
+  --bg-card:    #1a1d2b;
+  --bg-hover:   #23273a;
+  --border:        #232840;
+  --border-active: #333b5c;
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-ghost:     #475569;
+  --accent:      #7c3aed;
+  --accent-glow: rgba(124, 58, 237, 0.15);
+  --accent-hover:#8b5cf6;
+  --cyan:    #06b6d4;
+  --danger:  #f43f5e;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --bubble-mine:   #2e2a5e;
+  --bubble-theirs: #1a1e35;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
 
   /* Typography */
   --font-display: 'Syne', system-ui, sans-serif;
@@ -245,7 +310,7 @@ input, textarea, select { font-family: inherit; }
   border-radius: var(--r-lg);
   font-size: 13px;
   color: var(--text-primary);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-md);
   animation: slideInRight 200ms ease;
   pointer-events: all;
   max-width: 320px;
@@ -269,21 +334,24 @@ input, textarea, select { font-family: inherit; }
   padding: 20px;
   animation: fadeIn 150ms ease;
 }
-.modal-card {
+.modal-card, .modal {
   width: 100%;
   max-width: 420px;
   background: var(--bg-card);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--border-active);
   border-radius: var(--r-xl);
   padding: 28px;
-  animation: scaleIn 200ms ease;
+  animation: scaleIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-lg);
 }
 .modal-title {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  letter-spacing: -0.02em;
 }
 
 /* ══════════════════════════════════════════════
