@@ -24,9 +24,37 @@ async function getRoomByToken(token) {
 // GET /api/rooms/:token/messages — fetch full message history
 router.get('/', async (req, res, next) => {
   try {
-    const room = await getRoomByToken(req.params.token);
-    if (!room) return res.status(404).json({ error: 'Room not found or inactive' });
+    const { token } = req.params;
+    
+    // 1. Find the room regardless of status
+    const { data: room, error: roomErr } = await supabase
+      .from('rooms')
+      .select('id, is_active, expires_at')
+      .eq('token', token)
+      .single();
 
+    if (roomErr || !room) return res.status(404).json({ error: 'Room not found' });
+
+    // 2. Determine if user is owner
+    let isOwner = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const jwt = authHeader.split(' ')[1];
+      const { data: { user } } = await supabase.auth.getUser(jwt);
+      if (user && (!process.env.OWNER_EMAIL || user.email === process.env.OWNER_EMAIL)) {
+        isOwner = true;
+      }
+    }
+
+    // 3. If not owner, check room status
+    if (!isOwner) {
+      if (!room.is_active) return res.status(403).json({ error: 'Room has been revoked' });
+      if (room.expires_at && new Date(room.expires_at) < new Date()) {
+        return res.status(403).json({ error: 'Room has expired' });
+      }
+    }
+
+    // 4. Fetch messages
     const { data, error } = await supabase
       .from('messages')
       .select('*')

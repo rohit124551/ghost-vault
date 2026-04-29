@@ -35,12 +35,21 @@ export function AuthProvider({ children }) {
     return { error };
   };
 
+
+  const signInWithEmail = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { data, error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signInWithMagicLink, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, signInWithMagicLink, signInWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

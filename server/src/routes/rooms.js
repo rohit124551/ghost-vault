@@ -125,4 +125,71 @@ router.delete('/:token', requireOwner, async (req, res, next) => {
   }
 });
 
+// DELETE /api/rooms/:token/permanent — hard delete room + all files + all messages
+router.delete('/:token/permanent', requireOwner, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { deleteFromCloudinary } = require('../lib/cloudinary');
+
+    // 1. Get room info
+    const { data: room, error: fetchErr } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('token', token)
+      .single();
+
+    if (fetchErr || !room) return res.status(404).json({ error: 'Room not found' });
+
+    // 2. Collect all Cloudinary public IDs from room_messages
+    const { data: messages } = await supabase
+      .from('room_messages')
+      .select('cloudinary_public_id, mime_type')
+      .eq('room_id', room.id)
+      .not('cloudinary_public_id', 'is', null);
+
+    // 3. Collect all Cloudinary public IDs from uploads
+    const { data: uploads } = await supabase
+      .from('uploads')
+      .select('cloudinary_public_id, file_type')
+      .eq('room_id', room.id)
+      .not('cloudinary_public_id', 'is', null);
+
+    // 4. Batch delete from Cloudinary
+    const deletePromises = [];
+
+    if (messages) {
+      messages.forEach(m => {
+        const isImage = m.mime_type?.startsWith('image/');
+        deletePromises.push(deleteFromCloudinary(m.cloudinary_public_id, isImage ? 'image' : 'raw'));
+      });
+    }
+
+    if (uploads) {
+      uploads.forEach(u => {
+        const isImage = u.file_type?.startsWith('image/');
+        deletePromises.push(deleteFromCloudinary(u.cloudinary_public_id, isImage ? 'image' : 'raw'));
+      });
+    }
+
+    await Promise.allSettled(deletePromises);
+
+    // 5. Hard delete room (this will cascade to messages if ON DELETE CASCADE is set,
+    // but we manually delete associated uploads just in case)
+    await supabase.from('uploads').delete().eq('room_id', room.id);
+    await supabase.from('room_messages').delete().eq('room_id', room.id);
+    const { error: delErr } = await supabase.from('rooms').delete().eq('id', room.id);
+
+    if (delErr) throw delErr;
+
+    // Notify any active listeners
+    const io = req.app.get('io');
+    io.to(`room:${token}`).emit('room_revoked', { token });
+
+    res.json({ success: true, message: 'Room and all associated data permanently deleted' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+

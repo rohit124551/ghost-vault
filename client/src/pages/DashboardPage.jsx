@@ -218,17 +218,18 @@ function UploadCard({ upload, onDelete }) {
   );
 }
 
-// ── Room Row — two-step revoke ────────────────────────────────────────────────
-function RoomRow({ room, onQR, onRevoke, onChat }) {
+// ── Room Row — two-step revoke or permanent delete ───────────────────────────
+function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat }) {
   const [countdown, setCountdown] = useState(() => timeLeft(room.expires_at));
   const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmTimer = useRef(null);
 
   useEffect(() => {
-    if (!room.expires_at) return;
+    if (!room.expires_at || !room.is_active) return;
     const id = setInterval(() => setCountdown(timeLeft(room.expires_at)), 1000);
     return () => clearInterval(id);
-  }, [room.expires_at]);
+  }, [room.expires_at, room.is_active]);
 
   const handleRevoke = () => {
     if (!confirmRevoke) {
@@ -241,23 +242,49 @@ function RoomRow({ room, onQR, onRevoke, onChat }) {
     }
   };
 
+  const handleDelete = () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      confirmTimer.current = setTimeout(() => setConfirmDelete(false), 2000);
+    } else {
+      clearTimeout(confirmTimer.current);
+      setConfirmDelete(false);
+      onPermanentDelete();
+    }
+  };
+
   return (
-    <div className="room-row">
+    <div className={`room-row ${!room.is_active ? 'room-row--inactive' : ''}`}>
       <div className="room-row-left">
-        <span className="active-dot" />
+        <span className={`active-dot ${!room.is_active ? 'active-dot--inactive' : ''}`} />
         <span className="token-text">{room.token}</span>
         {room.view_once && <span className="badge badge-amber"><Eye size={9} /> once</span>}
-        {countdown && <span className="badge badge-blue"><Timer size={9} /> {countdown}</span>}
+        {room.is_active ? (
+          countdown && <span className="badge badge-blue"><Timer size={9} /> {countdown}</span>
+        ) : (
+          <span className="badge badge-grey">Expired/Revoked</span>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 4 }}>
         <button className="btn btn-ghost btn-sm btn-icon" onClick={onChat} data-tip="Chat"><MessageSquare size={13} /></button>
-        <button className="btn btn-ghost btn-sm btn-icon" onClick={onQR} data-tip="QR code"><QrCode size={13} /></button>
+        {room.is_active && (
+          <>
+            <button className="btn btn-ghost btn-sm btn-icon" onClick={onQR} data-tip="QR code"><QrCode size={13} /></button>
+            <button
+              className={`btn btn-sm btn-icon ${confirmRevoke ? 'btn-danger' : 'btn-ghost'}`}
+              onClick={handleRevoke}
+              data-tip={confirmRevoke ? 'Click again' : 'Revoke'}
+            >
+              {confirmRevoke ? <span style={{ fontSize: 10 }}>Sure?</span> : <X size={13} />}
+            </button>
+          </>
+        )}
         <button
-          className={`btn btn-sm btn-icon ${confirmRevoke ? 'btn-danger' : 'btn-ghost'}`}
-          onClick={handleRevoke}
-          data-tip={confirmRevoke ? 'Click again' : 'Revoke'}
+          className={`btn btn-sm btn-icon ${confirmDelete ? 'btn-danger' : 'btn-ghost'}`}
+          onClick={handleDelete}
+          data-tip={confirmDelete ? 'Wipe everything' : 'Permanent Delete'}
         >
-          {confirmRevoke ? <span style={{ fontSize: 10 }}>Sure?</span> : <X size={13} />}
+          {confirmDelete ? <span style={{ fontSize: 10 }}>Wipe?</span> : <Trash2 size={13} />}
         </button>
       </div>
     </div>
@@ -289,7 +316,7 @@ export default function DashboardPage() {
       .then(([u, r]) => {
         setUploads(u.data.uploads || []);
         setTotalUploads(u.data.total || 0);
-        setRooms((r.data || []).filter(rm => rm.is_active));
+        setRooms(r.data || []);
       })
       .finally(() => setLoading(false));
   }, [page]);
@@ -309,7 +336,7 @@ export default function DashboardPage() {
       }
       if (msg.sender === 'guest') toast(`💬 Guest: ${msg.content?.slice(0,40) || 'sent a file'}`, { duration: 3000 });
     };
-    const onRevoked = ({ token }) => setRooms(prev => prev.filter(r => r.token !== token));
+    const onRevoked = ({ token }) => setRooms(prev => prev.map(r => r.token === token ? { ...r, is_active: false } : r));
 
     socket.on('new_file', onFile);
     socket.on('new_message', onMessage);
@@ -382,8 +409,23 @@ export default function DashboardPage() {
   };
 
   const handleRevoke = async (token) => {
-    try { await api.delete(`/api/rooms/${token}`); setRooms(prev => prev.filter(r => r.token !== token)); if (qrRoom?.token === token) setQrRoom(null); if (chatRoom?.token === token) setChatRoom(null); toast.success('Room revoked'); }
-    catch { toast.error('Revoke failed'); }
+    try {
+      await api.delete(`/api/rooms/${token}`);
+      setRooms(prev => prev.map(r => r.token === token ? { ...r, is_active: false } : r));
+      if (qrRoom?.token === token) setQrRoom(null);
+      // We don't close chat automatically anymore, just show it as inactive
+      toast.success('Room revoked');
+    } catch { toast.error('Revoke failed'); }
+  };
+
+  const handlePermanentDelete = async (token) => {
+    try {
+      await api.delete(`/api/rooms/${token}/permanent`);
+      setRooms(prev => prev.filter(r => r.token !== token));
+      if (qrRoom?.token === token) setQrRoom(null);
+      if (chatRoom?.token === token) setChatRoom(null);
+      toast.success('Room wiped permanently');
+    } catch { toast.error('Permanent delete failed'); }
   };
 
   // Open chat panel — fetch history
@@ -468,17 +510,33 @@ export default function DashboardPage() {
         {/* Rooms */}
         <section className="dash-section">
           <div className="section-header">
-            <h2 className="text-lg" style={{ fontWeight: 600 }}>Temp Rooms</h2>
+            <h2 className="text-lg" style={{ fontWeight: 600 }}>Links &amp; History</h2>
             <button className="btn btn-primary btn-sm" onClick={() => setShowCreateRoom(true)}><Plus size={12} /> New</button>
           </div>
-          {rooms.length === 0
-            ? <div className="empty" style={{ padding: '16px 0' }}><Link2 size={22} /><p className="text-sm">No active rooms</p></div>
+          
+          <div className="section-subtitle">Active</div>
+          {rooms.filter(r => r.is_active).length === 0
+            ? <div className="empty" style={{ padding: '12px 0', border: '1px dashed var(--border)', borderRadius: 'var(--r-md)' }}><Link2 size={16} /><p className="text-xs">No active rooms</p></div>
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {rooms.map(r => (
+                {rooms.filter(r => r.is_active).map(r => (
                   <RoomRow key={r.id} room={r}
-                    onQR={() => setQrRoom({ token: r.token, expiresAt: r.expires_at, viewOnce: r.view_once })}
+                    onQR={() => setQrRoom({ token: r.token, expiresAt: r.expires_at, view_once: r.view_once })}
                     onRevoke={() => handleRevoke(r.token)}
+                    onPermanentDelete={() => handlePermanentDelete(r.token)}
                     onChat={() => openChat(r)}
+                  />
+                ))}
+              </div>
+          }
+
+          <div className="section-subtitle" style={{ marginTop: 24 }}>History</div>
+          {rooms.filter(r => !r.is_active).length === 0
+            ? <div className="empty" style={{ padding: '12px 0' }}><p className="text-xs text-ghost">History is empty</p></div>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {rooms.filter(r => !r.is_active).map(r => (
+                  <RoomRow key={r.id} room={r}
+                    onChat={() => openChat(r)}
+                    onPermanentDelete={() => handlePermanentDelete(r.token)}
                   />
                 ))}
               </div>

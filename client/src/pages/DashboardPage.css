@@ -301,3 +301,61 @@
   line-height: 1.5;
 }
 .paste-preview-actions { display: flex; gap: 8px; }
+
+/* ── History & Inactive states ── */
+.section-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-ghost);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  margin-top: 12px;
+}
+
+.room-row--inactive {
+  opacity: 0.5;
+  background: transparent;
+  border-style: dashed;
+}
+
+.active-dot--inactive {
+  background: var(--text-ghost) !important;
+  box-shadow: none !important;
+}
+
+.text-ghost {
+  color: var(--text-ghost);
+}
+
+/* ── Chat slide-panel ── */
+.slide-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;
+  max-width: 95vw;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -16px 0 48px rgba(0,0,0,0.5);
+  animation: slideInRight 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide-panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slide-panel-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
