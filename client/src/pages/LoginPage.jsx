@@ -66,7 +66,7 @@ export default function LoginPage() {
               fontWeight: 700,
               color: 'var(--text-1)',
               letterSpacing: '-0.3px',
-            }}>SnapVault</span>
+            }}>Ghost Vault</span>
           </div>
           <p style={{ color: 'var(--text-2)', fontSize: 13 }}>
             Your personal screenshot vault &amp; quick-share tool

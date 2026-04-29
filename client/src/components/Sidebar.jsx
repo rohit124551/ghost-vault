@@ -16,8 +16,8 @@ export default function Sidebar() {
     <aside className="sidebar">
       {/* Logo */}
       <div className="sb-brand">
-        <div className="sb-monogram">SV</div>
-        <span className="sb-name">SnapVault</span>
+        <div className="sb-monogram">GV</div>
+        <span className="sb-name">Ghost Vault</span>
       </div>
 
       <div className="divider" style={{ margin: '10px 12px' }} />

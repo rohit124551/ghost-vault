@@ -1,4 +1,4 @@
-# SnapVault
+# Ghost Vault
 
 Personal screenshot vault and temporary file-sharing tool.
 
@@ -31,7 +31,7 @@ Personal screenshot vault and temporary file-sharing tool.
 ## Project Structure
 
 ```
-snapvault/
+ghost-vault/
 ├── client/           React + Vite frontend
 │   ├── public/
 │   │   ├── manifest.json   PWA manifest
@@ -110,7 +110,7 @@ GET    /api/rooms/:token/valid   Validate token (public)
    PORT=4000
    FRONTEND_URL=https://chat.rohitkumarranjan.in
    ```
-6. Copy your Render URL (e.g. `https://snapvault-api.onrender.com`)
+6. Copy your Render URL (e.g. `https://ghost-vault-api.onrender.com`)
 
 ### 4. Frontend → Vercel
 1. Import GitHub repo → Vercel
@@ -119,8 +119,8 @@ GET    /api/rooms/:token/valid   Validate token (public)
    ```
    VITE_SUPABASE_URL=
    VITE_SUPABASE_ANON_KEY=
-   VITE_API_URL=https://snapvault-api.onrender.com
-   VITE_SOCKET_URL=https://snapvault-api.onrender.com
+   VITE_API_URL=https://ghost-vault-api.onrender.com
+   VITE_SOCKET_URL=https://ghost-vault-api.onrender.com
    ```
 4. Deploy → copy your Vercel URL
 
@@ -153,7 +153,7 @@ cd client && npm run dev   # port 5173
 2. **Paste** any screenshot with `Ctrl+V` anywhere on the dashboard
 3. Name it → set optional expiry → Save (URL auto-copied to clipboard)
 4. Create **temp rooms** → share QR code or link with friend
-5. See guest files appear **live** in the Received section
+5. See guest messages and files appear **live** in the thread
 6. **Revoke** room when done
 
 ### Guest

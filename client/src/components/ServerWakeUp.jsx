@@ -25,8 +25,8 @@ export default function ServerWakeUp() {
       <div className="wakeup-card">
         {/* Logo */}
         <div className="wakeup-logo">
-          <div className="wakeup-monogram">SV</div>
-          <span className="wakeup-brand">SnapVault</span>
+          <div className="wakeup-monogram">GV</div>
+          <span className="wakeup-brand">Ghost Vault</span>
         </div>
 
         {/* Icon */}
