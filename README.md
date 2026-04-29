@@ -1,166 +1,150 @@
-# Ghost Vault
+# 👻 GhostVault — Paste. Share. Vanish.
 
-Personal screenshot vault and temporary file-sharing tool.
+GhostVault is a premium, secure, and ephemeral file-sharing ecosystem designed for maximum speed and privacy. Whether you're pasting a quick screenshot to share with a client or creating a temporary "dead-drop" room for sensitive documents, GhostVault handles it with style and real-time precision.
 
-**Live:** http://localhost:5173 (Local)
+![Theme Preview](https://img.shields.io/badge/Theme-Cyber_Midnight-6366f1?style=for-the-badge&logo=ghost)
+![PWA Ready](https://img.shields.io/badge/PWA-Installable-success?style=for-the-badge&logo=pwa)
+![Tech Stack](https://img.shields.io/badge/Stack-React_|_Supabase_|_Socket.io-blue?style=for-the-badge)
 
 ---
 
-## Stack
+## ✨ Key Features
 
-| Layer | Tech | Host |
-|---|---|---|
-| Frontend | React + Vite | Vercel |
-| Backend | Node.js + Express + Socket.IO | Render.com |
-| Database | Supabase (PostgreSQL) | Supabase |
-| File Storage | Cloudinary | Cloudinary |
-| Auth | Supabase Magic Link | — |
+- **🚀 Instant Paste Sharing**: Press `Ctrl+V` anywhere on the dashboard to immediately upload a screenshot. The URL is automatically copied to your clipboard.
+- **🔒 Secure Temp Rooms**: Generate 4-character token rooms (`/r/xxxx`) for guests. Links can be set to expire in minutes, hours, or days.
+- **⚡ Real-Time Collaboration**: Full-duplex chat and file sharing via Socket.io. See guest uploads and messages appear instantly without refreshing.
+- **🌗 Dual-Theme Engine**: Toggle between **Cyber Midnight** (sleek dark mode) and **Safe White** (high-contrast light mode).
+- **📱 PWA Powered**: Install GhostVault as a native app on your iPhone or Android with standalone display support.
+- **📂 Universal File Support**: Share Excel spreadsheets, Word docs, PowerPoints, and more with intelligent `auto-detect` Cloudinary storage.
+- **👁️ View-Once Mode**: Specialized rooms that automatically revoke themselves the moment the first file is received.
+- **🚨 Panic Mode**: Press `Esc` twice quickly to hide your vault instantly. Restore with a hidden trigger.
 
-## Features
+---
 
-- **Paste screenshots** from clipboard (`Ctrl+V`) or drag & drop
-- **Auto-copy URL** to clipboard after every upload
-- **Expiring uploads** — set 24h / 7d / 30d TTL
-- **Temp share rooms** — 4-char token links, QR codes, countdown timers
-- **View-once rooms** — auto-revoke after first file received
-- **Real-time** — owner sees guest uploads live via Socket.IO
-- **Panic mode** — press `Esc` twice quickly → blank page; click grey dot to restore
-- **PWA** — installable on mobile
-- **No password** — magic link email auth
+## 🛠️ Technology Stack
 
-## Project Structure
+| Layer | Technology | Role |
+| :--- | :--- | :--- |
+| **Frontend** | React (Vite) | High-performance SPA with modern aesthetics |
+| **Backend** | Node.js (Express) | API layer and real-time socket coordination |
+| **Real-time** | Socket.IO | Bi-directional communication for live updates |
+| **Database** | Supabase | PostgreSQL storage for rooms and message history |
+| **Auth** | Supabase Auth | Secure Email & Password authentication |
+| **File Storage** | Cloudinary | Global CDN storage for images and raw documents |
+| **Styling** | Vanilla CSS | Custom design system with dynamic CSS variables |
 
-```
+---
+
+## 📂 Project Structure
+
+```text
 ghost-vault/
-├── client/           React + Vite frontend
-│   ├── public/
-│   │   ├── manifest.json   PWA manifest
-│   │   └── sw.js           Service worker
+├── client/                 # React + Vite Frontend
+│   ├── public/             # Static assets (Manifest, Icons, Service Worker)
 │   └── src/
-│       ├── pages/
-│       │   ├── LoginPage.jsx
-│       │   ├── DashboardPage.jsx   (owner main view)
-│       │   ├── GuestRoomPage.jsx   (/r/:token — no login)
-│       │   └── NotFoundPage.jsx    (/404)
-│       ├── contexts/
-│       │   ├── AuthContext.jsx
-│       │   └── SocketContext.jsx
-│       └── lib/
-│           ├── supabase.js
-│           └── api.js
+│       ├── components/     # Reusable UI (ChatWindow, ServerWakeUp, ThemeToggle)
+│       ├── contexts/       # State providers (Auth, Socket, Theme)
+│       ├── hooks/          # Custom logic (useServerHealth, useTheme)
+│       ├── lib/            # Utilities (api, supabase)
+│       └── pages/          # Full-page components
+│           ├── LoginPage       # Secure entry for Vault Owner
+│           ├── DashboardPage   # Real-time control center & file uploader
+│           ├── VaultPage       # Managed archive of all shared assets
+│           ├── RoomsPage       # Detailed list & management of active/revoked rooms
+│           ├── GuestRoomPage   # Public interface for ephemeral link guests (/r/:token)
+│           └── NotFoundPage    # Friendly 404 feedback for invalid/expired links
 │
-├── server/           Express + Socket.IO backend
+├── server/                 # Node.js + Express + Socket.io Backend
 │   └── src/
-│       ├── index.js
-│       ├── routes/
-│       │   ├── upload.js     POST /api/upload
-│       │   ├── uploads.js    GET/DELETE /api/uploads
-│       │   └── rooms.js      CRUD + /api/rooms/:token/valid
-│       ├── middleware/
-│       │   ├── requireOwner.js
-│       │   └── requireRoom.js
-│       ├── socket/index.js
-│       └── lib/
-│           ├── supabase.js
-│           ├── cloudinary.js
-│           └── token.js      4-char token generator
+│       ├── lib/            # Integrations
+│       │   ├── cloudinary.js   # Multi-format storage & transformations
+│       │   ├── supabase.js     # DB client & real-time subscriptions
+│       │   └── token.js        # 4-character secure token generator
+│       ├── middleware/     # Security
+│       │   └── auth.js         # JWT validation & Room-token authorization
+│       ├── routes/         # API Layer
+│       │   ├── rooms.js        # Room lifecycle (CRUD + Validation)
+│       │   ├── roomMessages.js # Real-time chat & ephemeral file exchange
+│       │   ├── upload.js       # Screenshot processing & metadata storage
+│       │   └── uploads.js      # Vault management & bulk deletion
+│       ├── socket/         # Event management
+│       │   └── index.js        # Real-time message broadcasting & revocation
+│       └── index.js        # Server entry point & Middleware config
 │
-└── supabase-schema.sql
+├── supabase-schema.sql     # PostgreSQL database structure
+└── package.json            # Workspace & dependency management
 ```
 
-## API
+---
 
+## 🚀 Setup & Deployment
+
+### 1. Database & Auth (Supabase)
+- Run `supabase-schema.sql` in the Supabase SQL Editor.
+- Enable **Email & Password** authentication in the Supabase Dashboard.
+- Disable **Confirm Email** if you want instant account creation/login.
+
+### 2. Environment Configuration
+
+**Server (`server/.env`)**
+```env
+SUPABASE_URL=your_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_secret_service_key
+CLOUDINARY_CLOUD_NAME=your_name
+CLOUDINARY_API_KEY=your_key
+CLOUDINARY_API_SECRET=your_secret
+PORT=4000
+FRONTEND_URL=https://your-app.vercel.app
 ```
-POST   /api/upload               Upload file (owner + guest)
-GET    /api/uploads              List owner's uploads (paginated, 10/page)
-DELETE /api/uploads/:id          Delete upload + Cloudinary asset
-POST   /api/rooms                Create temp room
-GET    /api/rooms                List all rooms
-DELETE /api/rooms/:token         Revoke room
-GET    /api/rooms/:token/valid   Validate token (public)
+
+**Client (`client/.env`)**
+```env
+VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_public_anon_key
+VITE_API_URL=https://your-api.onrender.com
+VITE_SOCKET_URL=https://your-api.onrender.com
 ```
 
-## Setup & Deployment
-
-### 1. Supabase
-1. Create project at [supabase.com](https://supabase.com)
-2. SQL Editor → paste `supabase-schema.sql` → **Run**
-3. Authentication → Providers → Email → enable **Magic Link**
-4. Settings → API → copy:
-   - `Project URL`
-   - `anon public` key
-   - `service_role` key (keep secret — server only)
-
-### 2. Cloudinary
-1. Create account at [cloudinary.com](https://cloudinary.com)
-2. Dashboard → copy **Cloud Name**, **API Key**, **API Secret**
-
-### 3. Backend → Render.com
-1. New Web Service → connect GitHub repo
-2. Root Directory: `server`
-3. Build Command: `npm install`
-4. Start Command: `npm start`
-5. Environment Variables:
-   ```
-   SUPABASE_URL=
-   SUPABASE_SERVICE_ROLE_KEY=
-   CLOUDINARY_CLOUD_NAME=
-   CLOUDINARY_API_KEY=
-   CLOUDINARY_API_SECRET=
-   PORT=4000
-   FRONTEND_URL=http://localhost:5173
-   ```
-6. Copy your Render URL (e.g. `https://ghost-vault-api.onrender.com`)
-
-### 4. Frontend → Vercel
-1. Import GitHub repo → Vercel
-2. Root Directory: `client`
-3. Environment Variables:
-   ```
-   VITE_SUPABASE_URL=
-   VITE_SUPABASE_ANON_KEY=
-   VITE_API_URL=https://ghost-vault-api.onrender.com
-   VITE_SOCKET_URL=https://ghost-vault-api.onrender.com
-   ```
-4. Deploy → copy your Vercel URL
-
-### 5. Custom Domain
-In your domain registrar:
-```
-CNAME  chat  →  cname.vercel-dns.com        (frontend)
-CNAME  api   →  your-app.onrender.com       (backend)
-```
-In Vercel → Domains → add your custom domain
-
-### 6. Local Development
+### 3. Local Development
 ```bash
-# Fill env files first
-cp server/.env.example server/.env
-cp client/.env.example client/.env
+# Install root, client, and server dependencies
+npm install
 
-# From repo root — opens two terminal windows
+# Run everything concurrently
 npm run dev
 
-# Or separately:
+# Or run separately
 cd server && npm run dev   # port 4000
 cd client && npm run dev   # port 5173
 ```
 
-## Usage
+---
 
-### Owner
-1. Visit `http://localhost:5173` → enter email → click magic link
-2. **Paste** any screenshot with `Ctrl+V` anywhere on the dashboard
-3. Name it → set optional expiry → Save (URL auto-copied to clipboard)
-4. Create **temp rooms** → share QR code or link with friend
-5. See guest messages and files appear **live** in the thread
-6. **Revoke** room when done
+## 📸 Usage & Workflow
 
-### Guest
-1. Open `http://localhost:5173/r/xxxx` (shared link or QR)
-2. Drop a file or type a message → Send
-3. Done — owner sees it instantly
+### The Owner Flow
+1. **Login**: Enter your authorized **Email and Password**. No magic links required.
+2. **Vaulting**: Drag & drop or **Paste screenshots** directly with `Ctrl+V`. Set an expiry time if needed.
+3. **Sharing**: Click the QR icon on any link to show a scannable share-modal or copy the direct URL.
+4. **Monitoring**: Open the chat for any active link to see guest interactions in real-time.
 
-### Panic Mode
-- Press `Esc` twice quickly → entire UI hides
-- Click the small grey dot (bottom-right corner) → UI restores
+### The Guest Experience
+1. **No Login Required**: Guests simply open your shared `/r/:token` link.
+2. **Upload & Chat**: They can drop files or send messages immediately.
+3. **Auto-Cleanup**: Once the link expires or you revoke it, the guest is instantly redirected to a secure 404 page.
+
+### 🚨 Panic Mode
+- Press `Esc` twice quickly → The entire UI instantly vanishes.
+- Click the small hidden grey dot in the bottom-right corner → The UI restores.
+
+---
+
+## 🔒 Security & Privacy
+- **Direct Auth**: Secure Email & Password login for the owner.
+- **Tokenized Access**: Guests only have access to specific rooms via unique 4-character tokens.
+- **Auto-Cleanup**: Expired data is automatically purged from Supabase and Cloudinary.
+- **Redirection**: Invalid, revoked, or expired links immediately redirect guests to a secure 404 page.
+
+---
+
+*GhostVault — Built with ❤️ for speed and privacy.*
