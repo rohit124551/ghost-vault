@@ -118,6 +118,7 @@ export default function GuestRoomPage() {
           onDelete={null}
           canDelete={false}
           loading={chatLoad}
+          myRole="guest"
         />
       </div>
     </div>

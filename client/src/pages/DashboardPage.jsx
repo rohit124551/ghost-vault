@@ -526,6 +526,7 @@ export default function DashboardPage() {
                 onDelete={handleDeleteMessage}
                 canDelete={true}
                 loading={chatLoading}
+                myRole="owner"
               />
             </div>
           </div>

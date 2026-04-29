@@ -24,23 +24,23 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function MessageBubble({ msg, isOwner, onDelete, canDelete }) {
+function MessageBubble({ msg, myRole, onDelete, canDelete }) {
   const [imgExpanded, setImgExpanded] = useState(false);
-  const own = msg.sender === 'owner';
+  const isMe = msg.sender === myRole;
 
   return (
-    <div className={`bubble-row ${own ? 'bubble-row--right' : 'bubble-row--left'}`}>
-      {/* Avatar (guest only, left side) */}
-      {!own && (
+    <div className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'}`}>
+      {/* Avatar (others only, left side) */}
+      {!isMe && (
         <div className="bubble-avatar" style={{ background: getAvatarColor(msg.sender) }}>
-          G
+          {msg.sender === 'owner' ? 'O' : 'G'}
         </div>
       )}
 
-      <div className={`bubble ${own ? 'bubble--owner' : 'bubble--guest'}`}>
+      <div className={`bubble ${isMe ? 'bubble--owner' : 'bubble--guest'}`}>
         {/* Sender label */}
         <div className="bubble-meta">
-          <span className="bubble-sender">{own ? 'You' : 'Guest'}</span>
+          <span className="bubble-sender">{isMe ? 'You' : (msg.sender === 'owner' ? 'Owner' : 'Guest')}</span>
           <span className="bubble-time">{formatTime(msg.created_at)}</span>
           {canDelete && (
             <button className="bubble-delete" onClick={() => onDelete(msg.id)}>
@@ -99,16 +99,17 @@ function MessageBubble({ msg, isOwner, onDelete, canDelete }) {
  *   onDelete(id)      — callback to delete a message (owner only)
  *   canDelete         — boolean (true for owner)
  *   loading           — boolean
+ *   myRole            - 'owner' or 'guest'
  */
-export default function ChatWindow({ messages, onSendText, onSendFile, onDelete, canDelete, loading }) {
+export default function ChatWindow({ messages, onSendText, onSendFile, onDelete, canDelete, loading, myRole = 'owner' }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef(null);
-  const fileRef = useRef(null);
+  const scrollRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Auto-scroll on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = async () => {
@@ -149,25 +150,25 @@ export default function ChatWindow({ messages, onSendText, onSendFile, onDelete,
             <MessageBubble
               key={msg.id || i}
               msg={msg}
-              isOwner={msg.sender === 'owner'}
+              myRole={myRole}
               onDelete={onDelete}
               canDelete={canDelete}
             />
           ))
         )}
-        <div ref={bottomRef} />
+        <div ref={scrollRef} />
       </div>
 
       {/* Input bar */}
       <div className="chat-input-bar">
         <button
           className="chat-attach-btn"
-          onClick={() => fileRef.current?.click()}
+          onClick={() => fileInputRef.current?.click()}
           title="Attach file"
         >
           <Paperclip size={16} />
         </button>
-        <input type="file" ref={fileRef} onChange={handleFile} style={{ display: 'none' }} />
+        <input type="file" ref={fileInputRef} onChange={handleFile} style={{ display: 'none' }} />
         <textarea
           className="chat-input"
           placeholder="Type a message…"
