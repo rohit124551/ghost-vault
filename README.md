@@ -2,7 +2,7 @@
 
 Personal screenshot vault and temporary file-sharing tool.
 
-**Live:** https://chat.rohitkumarranjan.in
+**Live:** http://localhost:5173 (Local)
 
 ---
 
@@ -108,7 +108,7 @@ GET    /api/rooms/:token/valid   Validate token (public)
    CLOUDINARY_API_KEY=
    CLOUDINARY_API_SECRET=
    PORT=4000
-   FRONTEND_URL=https://chat.rohitkumarranjan.in
+   FRONTEND_URL=http://localhost:5173
    ```
 6. Copy your Render URL (e.g. `https://ghost-vault-api.onrender.com`)
 
@@ -125,12 +125,12 @@ GET    /api/rooms/:token/valid   Validate token (public)
 4. Deploy → copy your Vercel URL
 
 ### 5. Custom Domain
-In your domain registrar (rohitkumarranjan.in):
+In your domain registrar:
 ```
 CNAME  chat  →  cname.vercel-dns.com        (frontend)
 CNAME  api   →  your-app.onrender.com       (backend)
 ```
-In Vercel → Domains → add `chat.rohitkumarranjan.in`
+In Vercel → Domains → add your custom domain
 
 ### 6. Local Development
 ```bash
@@ -149,7 +149,7 @@ cd client && npm run dev   # port 5173
 ## Usage
 
 ### Owner
-1. Visit `chat.rohitkumarranjan.in` → enter email → click magic link
+1. Visit `http://localhost:5173` → enter email → click magic link
 2. **Paste** any screenshot with `Ctrl+V` anywhere on the dashboard
 3. Name it → set optional expiry → Save (URL auto-copied to clipboard)
 4. Create **temp rooms** → share QR code or link with friend
@@ -157,7 +157,7 @@ cd client && npm run dev   # port 5173
 6. **Revoke** room when done
 
 ### Guest
-1. Open `chat.rohitkumarranjan.in/r/xxxx` (shared link or QR)
+1. Open `http://localhost:5173/r/xxxx` (shared link or QR)
 2. Drop a file or type a message → Send
 3. Done — owner sees it instantly
 
