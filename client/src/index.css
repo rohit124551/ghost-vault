@@ -438,3 +438,169 @@ input, textarea, select { font-family: inherit; }
   0%,100% { box-shadow: 0 0 0 1px var(--border); }
   50%      { box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--accent-glow); }
 }
+
+/* ══════════════════════════════════════════════
+   PWA & SAFE AREAS
+   ══════════════════════════════════════════════ */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+.install-prompt-container {
+  position: fixed;
+  bottom: calc(24px + var(--safe-bottom));
+  left: 24px;
+  right: 24px;
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.install-prompt-card {
+  width: 100%;
+  max-width: 500px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: all;
+  backdrop-filter: blur(20px);
+}
+
+.install-prompt-left .ghost-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  background: var(--accent-glow);
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.install-prompt-center {
+  flex: 1;
+}
+
+.install-prompt-center h3 {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.install-prompt-center p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ios-instructions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ios-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+}
+
+.install-prompt-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-prompt-right .btn-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.install-prompt-right .btn-pill {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.install-prompt-right .btn-pill:hover {
+  background: var(--accent-hover);
+}
+
+/* Safe area padding utilities */
+.pwa-safe-top { padding-top: var(--safe-top); }
+.pwa-safe-bottom { padding-bottom: var(--safe-bottom); }
+
+@media (display-mode: standalone) {
+  .app-layout {
+    padding-top: var(--safe-top);
+  }
+}
+
+/* ── Offline Overlay ── */
+.offline-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 7, 8, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 300ms ease;
+}
+
+.offline-card {
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 40px;
+  border-radius: var(--r-xl);
+  max-width: 320px;
+  box-shadow: var(--shadow-lg);
+}
+
+.offline-ghost {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.offline-card h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.offline-card p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+

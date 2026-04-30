@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useServerHealth } from './hooks/useServerHealth';
 import ServerWakeUp from './components/ServerWakeUp';
@@ -9,6 +9,7 @@ import AuthCallback from './pages/AuthCallback';
 import DashboardPage from './pages/DashboardPage.jsx';
 import GuestRoomPage from './pages/GuestRoomPage';
 import NotFoundPage from './pages/NotFoundPage';
+import InstallPrompt from './components/InstallPrompt';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -46,9 +47,31 @@ function PanicMode() {
   return <div className="panic-dot" title="Click to restore" />;
 }
 
+// Real-time Offline Overlay
+function OfflineOverlay() {
+  return (
+    <div className="offline-overlay">
+      <div className="offline-card">
+        <div className="offline-ghost">👻</div>
+        <h2>Connection Lost</h2>
+        <p>GhostVault needs an active connection to stay secure. Reconnecting...</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const { user, loading: authLoading } = useAuth();
   const { awake, checking } = useServerHealth();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+  }, []);
 
   // When server wakes, dispatch event for ServerWakeUp component countdown
   useEffect(() => {
@@ -56,13 +79,17 @@ export default function App() {
   }, [awake]);
 
   // Show wake-up screen while server is starting
-  if (checking || !awake) return <ServerWakeUp />;
+  // Skip wake-up screen if running in standalone mode (PWA) and user is already logged in
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  if ((checking || !awake) && !(isStandalone && user)) return <ServerWakeUp />;
 
   if (authLoading) return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-base)' }}><div className="spinner spinner-lg" /></div>;
 
   return (
     <>
       <PanicMode />
+      {!isOnline && <OfflineOverlay />}
+      <InstallPrompt />
       <Routes>
         <Route path="/login"         element={user ? <Navigate to="/dash" /> : <LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />

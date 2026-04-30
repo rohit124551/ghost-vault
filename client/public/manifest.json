@@ -1,24 +1,42 @@
 {
   "name": "GhostVault",
   "short_name": "GhostVault",
-  "description": "Secure ephemeral file sharing and screenshot vault",
+  "description": "Paste. Share. Vanish.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#6366f1",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "background_color": "#070708",
+  "theme_color": "#070708",
+  "scope": "/",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Open your vault",
+      "url": "/dash",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "New Temp Link",
+      "short_name": "New Link",
+      "description": "Create a temporary share link",
+      "url": "/dash?action=new-room",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ]
 }

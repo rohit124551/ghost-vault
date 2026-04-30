@@ -233,7 +233,8 @@
   align-items: center;
   gap: 8px;
   padding: 12px 14px;
-  height: 64px;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  min-height: 64px;
   background: var(--bg-card);
   border-top: 1px solid var(--border);
   flex-shrink: 0;

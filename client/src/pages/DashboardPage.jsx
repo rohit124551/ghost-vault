@@ -489,6 +489,7 @@ export default function DashboardPage() {
       {/* ── Welcome Header ── */}
       <header className="dash-header">
         <div className="dash-welcome">
+          <div className="mobile-only-brand">GhostVault</div>
           <h1 className="text-display">Systems Online.</h1>
           <p className="text-secondary">Welcome back, <span className="text-cyan mono">{user?.email?.split('@')[0]}</span>. Everything is secure.</p>
         </div>

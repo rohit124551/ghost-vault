@@ -148,3 +148,25 @@ cd client && npm run dev   # port 5173
 ---
 
 *GhostVault — Built with ❤️ for speed and privacy.*
+
+---
+
+## 📱 PWA Testing Checklist
+To verify that the PWA is working correctly:
+
+1. **Open Chrome DevTools → Application → Manifest**
+   - Should show all icons and manifest details with no errors.
+2. **Application → Service Workers**
+   - Should show `sw.js` as activated and running.
+3. **Lighthouse audit → PWA category**
+   - Should score high on all PWA checks.
+4. **On Android Chrome → Three dot menu → "Add to Home Screen"**
+   - Should show GhostVault name and icon, not generic.
+5. **On iOS Safari → Share button → "Add to Home Screen"**
+   - Should show GhostVault name and icon.
+6. **After Install → Open from Home Screen**
+   - Should open in standalone mode with no browser chrome.
+   - URL bar should be hidden.
+   - Status bar should be dark matching app theme.
+   - Safe areas (notch/home indicator) should be respected with appropriate padding.
+
