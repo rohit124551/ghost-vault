@@ -1,6 +1,6 @@
-# 👻 GhostVault — Paste. Share. Vanish.
+# 👻 GhostVault | SecOps Console
 
-GhostVault is a premium, secure, and ephemeral file-sharing ecosystem designed for maximum speed and privacy. Whether you're pasting a quick screenshot to share with a client or creating a temporary "dead-drop" room for sensitive documents, GhostVault handles it with style and real-time precision.
+GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for maximum speed and privacy. Whether you're pasting a quick screenshot to share with a client or creating a temporary "dead-drop" room for sensitive documents, GhostVault handles it with style and real-time precision.
 
 ![Theme Preview](https://img.shields.io/badge/Theme-Cyber_Midnight-6366f1?style=for-the-badge&logo=ghost)
 ![PWA Ready](https://img.shields.io/badge/PWA-Installable-success?style=for-the-badge&logo=pwa)

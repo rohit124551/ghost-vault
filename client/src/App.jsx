@@ -6,9 +6,10 @@ import ServerWakeUp from './components/ServerWakeUp';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
 import AuthCallback from './pages/AuthCallback';
-import DashboardPage from './pages/DashboardPage.jsx';
+import DashboardPage from './pages/DashboardPage';
 import GuestRoomPage from './pages/GuestRoomPage';
 import NotFoundPage from './pages/NotFoundPage';
+import LandingPage from './pages/LandingPage';
 import InstallPrompt from './components/InstallPrompt';
 
 function ProtectedRoute({ children }) {
@@ -98,11 +99,11 @@ export default function App() {
 
         <Route path="/dash" element={
           <ProtectedRoute>
-            <OwnerLayout><DashboardPage /></OwnerLayout>
+            <DashboardPage />
           </ProtectedRoute>
         } />
 
-        <Route path="/"  element={<Navigate to={user ? '/dash' : '/login'} />} />
+        <Route path="/"  element={<LandingPage />} />
         <Route path="*"  element={<Navigate to="/404" />} />
       </Routes>
     </>
