@@ -11,13 +11,15 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 ## ✨ Key Features
 
 - **🚀 Instant Paste Sharing**: Press `Ctrl+V` anywhere on the dashboard to immediately upload a screenshot. The URL is automatically copied to your clipboard.
-- **🔒 Secure Temp Rooms**: Generate 4-character token rooms (`/r/xxxx`) for guests. Links can be set to expire in minutes, hours, or days.
-- **⚡ Real-Time Collaboration**: Full-duplex chat and file sharing via Socket.io. See guest uploads and messages appear instantly without refreshing.
-- **🌗 Dual-Theme Engine**: Toggle between **Cyber Midnight** (sleek dark mode) and **Safe White** (high-contrast light mode).
-- **📱 PWA Powered**: Install GhostVault as a native app on your iPhone or Android with standalone display support.
-- **📂 Universal File Support**: Share Excel spreadsheets, Word docs, PowerPoints, and more with intelligent `auto-detect` Cloudinary storage.
-- **👁️ View-Once Mode**: Specialized rooms that automatically revoke themselves the moment the first file is received.
+- **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
+- **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
+- **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
+- **🗑️ 2-Step Secure Deletion**: Prevent accidental data loss with safety-first deletion workflows and pulsing visual confirmations.
+- **📱 Responsive Sidebar**: Intelligent navigation with auto-collapse on chat, click-outside-to-close behavior, and persistent toggles for maximum workspace focus.
+- **📂 Universal File Support**: Share images, docs, and raw payloads with intelligent `auto-detect` Cloudinary storage and one-click link copying.
+- **👁️ View-Once Mode**: Specialized tunnels that automatically revoke themselves the moment the first file is received.
 - **🚨 Panic Mode**: Press `Esc` twice quickly to hide your vault instantly. Restore with a hidden trigger.
+
 
 ---
 
@@ -48,11 +50,10 @@ ghost-vault/
 │       ├── lib/            # Utilities (api, supabase)
 │       └── pages/          # Full-page components
 │           ├── LoginPage       # Secure entry for Vault Owner
-│           ├── DashboardPage   # Real-time control center & file uploader
-│           ├── VaultPage       # Managed archive of all shared assets
-│           ├── RoomsPage       # Detailed list & management of active/revoked rooms
-│           ├── GuestRoomPage   # Public interface for ephemeral link guests (/r/:token)
-│           └── NotFoundPage    # Friendly 404 feedback for invalid/expired links
+│           ├── DashboardPage   # Real-time Command Center & Tunnels Orchestrator
+│           ├── LandingPage     # Public-facing system information (About System)
+│           ├── GuestRoomPage   # Public interface for ephemeral tunnel guests (/r/:token)
+│           └── NotFoundPage    # Friendly 404 feedback for invalid/expired tunnels
 │
 ├── server/                 # Node.js + Express + Socket.io Backend
 │   └── src/
@@ -123,15 +124,16 @@ cd client && npm run dev   # port 5173
 ## 📸 Usage & Workflow
 
 ### The Owner Flow
-1. **Login**: Enter your authorized **Email and Password**. No magic links required.
+1. **Login**: Enter your authorized **Email and Password**.
 2. **Vaulting**: Drag & drop or **Paste screenshots** directly with `Ctrl+V`. Set an expiry time if needed.
-3. **Sharing**: Click the QR icon on any link to show a scannable share-modal or copy the direct URL.
-4. **Monitoring**: Open the chat for any active link to see guest interactions in real-time.
+3. **Tunneling**: Initialize a **Secure Tunnel** for guests. Use the QR icon to show a scannable share-modal or copy the direct URL.
+4. **Monitoring**: Access the **SecOps Terminal** for any active tunnel to see guest interactions and file transfers in real-time.
 
 ### The Guest Experience
-1. **No Login Required**: Guests simply open your shared `/r/:token` link.
-2. **Upload & Chat**: They can drop files or send messages immediately.
-3. **Auto-Cleanup**: Once the link expires or you revoke it, the guest is instantly redirected to a secure 404 page.
+1. **Secure Entry**: Guests simply open your shared `/r/:token` tunnel link.
+2. **Data Drop**: They can drop files or send messages immediately via the encrypted connection.
+3. **Auto-Cleanup**: Once the tunnel expires or you revoke it, the connection is instantly severed and the guest is redirected to a secure 404 page.
+
 
 ### 🚨 Panic Mode
 - Press `Esc` twice quickly → The entire UI instantly vanishes.
