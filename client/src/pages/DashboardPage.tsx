@@ -809,10 +809,7 @@ export default function DashboardPage() {
                   <MessageSquare size={24} />
                   <span className="text-[10px] font-bold">Tunnels</span>
                 </button>
-                <button onClick={() => { setActiveTab('nodes'); setSidebarOpen(false); }} className={`flex flex-col items-center justify-center gap-3 p-3 rounded-2xl transition-colors ${activeTab === 'nodes' ? 'bg-accent/10 text-accent' : 'bg-bgBase text-textSecondary hover:text-textPrimary border border-borderBase'}`}>
-                  <MessageSquare size={24} />
-                  <span className="text-[10px] font-bold">Tunnels</span>
-                </button>
+
               </div>
 
 
@@ -1205,7 +1202,7 @@ export default function DashboardPage() {
 
         {/* Mobile Bottom Navigation - Visible on all tabs unless in active chat */}
         {!chatRoom && (
-          <nav className="md:hidden absolute bottom-0 left-0 right-0 h-16 bg-bgCard border-t border-borderBase flex items-center justify-around z-40 pb-safe-bottom">
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-bgCard border-t border-borderBase flex items-center justify-around z-40 pb-safe-bottom">
             <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${activeTab === 'dashboard' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
               <Activity size={20} />
               <span className="text-[9px] font-mono mt-1 font-bold tracking-widest uppercase">Dash</span>
