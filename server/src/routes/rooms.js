@@ -17,7 +17,7 @@ router.get('/:token/valid', async (req, res, next) => {
     const { token } = req.params;
     const { data: room, error } = await supabase
       .from('rooms')
-      .select('id, token, expires_at, is_active, view_once')
+      .select('id, token, expires_at, is_active, view_once, note')
       .eq('token', token)
       .single();
 
@@ -38,6 +38,7 @@ router.get('/:token/valid', async (req, res, next) => {
       valid: true,
       expiresAt: room.expires_at,
       viewOnce: room.view_once,
+      note: room.note,
     });
   } catch (err) {
     next(err);
@@ -47,7 +48,7 @@ router.get('/:token/valid', async (req, res, next) => {
 // POST /api/rooms — create a new room with unique token (owner only)
 router.post('/', requireOwner, async (req, res, next) => {
   try {
-    const { expiresInMinutes, viewOnce = false } = req.body;
+    const { expiresInMinutes, viewOnce = false, note } = req.body;
 
     // Generate unique token (check DB)
     let token;
@@ -69,6 +70,7 @@ router.post('/', requireOwner, async (req, res, next) => {
         token,
         expires_at: expiresAt,
         view_once: viewOnce,
+        note: note || null,
         is_active: true,
       })
       .select()
@@ -87,7 +89,7 @@ router.get('/', requireOwner, async (req, res, next) => {
     const { data, error } = await supabase
       .from('rooms')
       .select(`
-        id, token, created_at, expires_at, view_once, is_active,
+        id, token, created_at, expires_at, view_once, is_active, note,
         uploads(id, file_name, cloudinary_url, created_at, file_type)
       `)
       .order('created_at', { ascending: false });

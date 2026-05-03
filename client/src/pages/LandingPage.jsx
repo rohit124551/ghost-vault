@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import GhostLogo from '../components/GhostLogo';
@@ -7,10 +7,18 @@ import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon } f
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [clientIp, setClientIp] = useState('FETCHING...');
   const fullText = "Paste. Share. Vanish.";
   const [typedText, setTypedText] = useState("");
   const { theme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    if (user && !location.state?.fromSidebar) {
+      navigate('/dash', { replace: true });
+    }
+  }, [user, location.state, navigate]);
 
   useEffect(() => {
     fetch('https://api.ipify.org?format=json')

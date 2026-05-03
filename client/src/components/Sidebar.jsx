@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LayoutDashboard, LogOut, Sun, Moon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -34,6 +34,17 @@ export default function Sidebar() {
 
       {/* ── Nav ── */}
       <nav className="sb-nav">
+        <NavLink
+          to="/"
+          state={{ fromSidebar: true }}
+          className={({ isActive }) => `sb-link${isActive ? ' sb-link--active' : ''}`}
+          title={collapsed ? 'Home' : ''}
+          end
+        >
+          <Home size={14} />
+          {!collapsed && <span>Home</span>}
+        </NavLink>
+
         <NavLink
           to="/dash"
           className={({ isActive }) => `sb-link${isActive ? ' sb-link--active' : ''}`}

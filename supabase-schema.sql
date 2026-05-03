@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   expires_at  TIMESTAMPTZ,                 -- nullable = no auto-expire
   view_once   BOOLEAN DEFAULT FALSE,       -- auto-revoke after first file received
+  note        TEXT,                        -- optional purpose/note for the room
   is_active   BOOLEAN DEFAULT TRUE
 );
 

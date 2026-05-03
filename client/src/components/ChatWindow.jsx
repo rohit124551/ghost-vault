@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import './ChatWindow.css';
 
 /* ── Helpers ── */
@@ -28,7 +30,32 @@ function formatTime(ts) {
 /* ── Message Bubble ── */
 function MessageBubble({ msg, myRole, onDelete, canDelete }) {
   const [imgExpanded, setImgExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isMe = msg.sender === myRole;
+
+
+  const handleCopy = () => {
+    const contentToCopy = (msg.type === 'image' || msg.type === 'file') ? msg.file_url : msg.content;
+    navigator.clipboard.writeText(contentToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast.success('Link copied to clipboard', { id: 'copy-toast' });
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 2000);
+    } else {
+      onDelete(msg.id);
+      setConfirmDelete(false);
+    }
+  };
+
+
+
 
   return (
     <div className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'}`}>
@@ -40,18 +67,27 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
       )}
 
       <div className={`bubble ${isMe ? 'bubble--mine' : 'bubble--theirs'}`}>
-        {/* Sender + timestamp row */}
+        {/* Sender + actions row */}
         <div className="bubble-meta">
           <span className="bubble-sender">
             {isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
           </span>
-          <span className="bubble-time">{formatTime(msg.created_at)}</span>
-          {canDelete && isMe && (
-            <button className="bubble-delete" onClick={() => onDelete(msg.id)} title="Delete">
-              <X size={10} />
+          <div className="bubble-actions">
+            <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy Link">
+              {copied ? <Check size={10} /> : <Copy size={10} />}
             </button>
-          )}
+            {canDelete && isMe && (
+              <button 
+                className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`} 
+                onClick={handleDelete} 
+                title={confirmDelete ? 'Confirm Delete?' : 'Delete'}
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
         </div>
+
 
         {/* ── Text ── */}
         {msg.type === 'text' && (
@@ -91,6 +127,8 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
             </a>
           </div>
         )}
+
+        <span className="bubble-time-float">{formatTime(msg.created_at)}</span>
       </div>
     </div>
   );
@@ -116,8 +154,21 @@ export default function ChatWindow({
   const [text, setText]       = useState('');
   const [sending, setSending] = useState(false);
   const [filePreview, setFilePreview] = useState(null); // { file, name }
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const scrollRef   = useRef(null);
+  const threadRef   = useRef(null);
   const fileInputRef = useRef(null);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollBtn(!isAtBottom);
+  };
+
+  const scrollToBottom = () => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -152,9 +203,26 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="chat-window">
+    <div className="chat-window" style={{ position: 'relative' }}>
+      <AnimatePresence initial={false}>
+        {showScrollBtn && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: 20 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="chat-scroll-bottom"
+            onClick={scrollToBottom}
+          >
+            <ChevronDown size={18} strokeWidth={3} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {/* ── Message thread ── */}
-      <div className="chat-thread">
+      <div className="chat-thread" ref={threadRef} onScroll={handleScroll}>
+
         {loading ? (
           <div className="chat-empty"><div className="spinner" /></div>
         ) : messages.length === 0 ? (
@@ -208,40 +276,42 @@ export default function ChatWindow({
         </div>
       ) : (
         <div className="chat-bar">
-          <button
-            className="chat-attach"
-            onClick={() => fileInputRef.current?.click()}
-            title="Attach file"
-            disabled={sending}
-          >
-            <Paperclip size={16} />
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-          <textarea
-            className="chat-input"
-            placeholder="Message..."
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={handleKey}
-            rows={1}
-            disabled={sending}
-          />
-          <button
-            className={`chat-send ${text.trim() ? 'chat-send--active' : ''}`}
-            onClick={handleSend}
-            disabled={!text.trim() || sending}
-            title="Send"
-          >
-            {sending
-              ? <span className="spinner" style={{width:14,height:14}} />
-              : <Send size={14} />
-            }
-          </button>
+          <div className="chat-input-wrapper">
+            <button
+              className="chat-attach"
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach file"
+              disabled={sending}
+            >
+              <Paperclip size={16} />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+            <textarea
+              className="chat-input"
+              placeholder="Message..."
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={handleKey}
+              rows={1}
+              disabled={sending}
+            />
+            <button
+              className={`chat-send ${text.trim() ? 'chat-send--active' : ''}`}
+              onClick={handleSend}
+              disabled={!text.trim() || sending}
+              title="Send"
+            >
+              {sending
+                ? <span className="spinner" style={{width:14,height:14}} />
+                : <Send size={14} />
+              }
+            </button>
+          </div>
         </div>
       )}
     </div>

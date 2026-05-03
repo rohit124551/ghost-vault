@@ -20,6 +20,8 @@ export default function GuestRoomPage() {
   const [chatLoad,  setChatLoad]  = useState(false);
   const [socket,    setSocket]    = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
+  const [note,      setNote]      = useState(null);
+  const [timeLeft,  setTimeLeft]  = useState(null);
 
   // Validate token + load history
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function GuestRoomPage() {
         
         setStatus('valid');
         setExpiresAt(res.data.expiresAt);
+        setNote(res.data.note);
 
         // Load message history
         setChatLoad(true);
@@ -45,14 +48,28 @@ export default function GuestRoomPage() {
 
   // Real-time expiry timer
   useEffect(() => {
-    if (!expiresAt || status !== 'valid') return;
+    if (status !== 'valid') return;
     
     const check = () => {
-      if (new Date(expiresAt) < new Date()) {
+      if (!expiresAt) {
+        setTimeLeft('Infinite');
+        return;
+      }
+      const ms = new Date(expiresAt).getTime() - Date.now();
+      if (ms <= 0) {
         navigate('/404', { replace: true });
+        return;
+      }
+      const s = Math.floor(ms / 1000);
+      if (s < 60) setTimeLeft(`${s}s`);
+      else {
+        const m = Math.floor(s / 60);
+        if (m < 60) setTimeLeft(`${m}m ${s % 60}s`);
+        else setTimeLeft(`${Math.floor(m / 60)}h ${m % 60}m`);
       }
     };
     
+    check();
     const id = setInterval(check, 1000);
     return () => clearInterval(id);
   }, [expiresAt, status, navigate]);
@@ -65,7 +82,10 @@ export default function GuestRoomPage() {
 
     s.on('new_message', (msg) => {
       if (msg.roomToken === token || msg.room_token === token) {
-        setMessages(prev => [...prev, msg]);
+        setMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
       }
     });
 
@@ -84,7 +104,10 @@ export default function GuestRoomPage() {
         content: text,
         sender: 'guest',
       });
-      setMessages(prev => [...prev, res.data]);
+      setMessages(prev => {
+        if (prev.some(m => m.id === res.data.id)) return prev;
+        return [...prev, res.data];
+      });
     } catch { /* silently fail */ }
   };
 
@@ -97,7 +120,10 @@ export default function GuestRoomPage() {
     fd.append('fileName', file.name);
     try {
       const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, fd);
-      setMessages(prev => [...prev, res.data]);
+      setMessages(prev => {
+        if (prev.some(m => m.id === res.data.id)) return prev;
+        return [...prev, res.data];
+      });
     } catch { /* silently fail */ }
   };
 
@@ -127,6 +153,13 @@ export default function GuestRoomPage() {
             >
               {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
             </button>
+            
+            {timeLeft && (
+              <div style={{ marginRight: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontFamily: 'monospace', color: timeLeft === 'Infinite' ? 'var(--text-ghost)' : 'var(--accent)' }}>
+                <Timer size={12} /> {timeLeft}
+              </div>
+            )}
+            
             <div className="guest-token-badge">
               Room <span className="mono">{token}</span>
             </div>
@@ -135,6 +168,13 @@ export default function GuestRoomPage() {
             </div>
           </div>
         </div>
+
+        {note && (
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-base)', backgroundColor: 'var(--bg-card)', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <strong style={{ color: 'var(--text-primary)', marginRight: '8px' }}>Purpose:</strong> 
+            {note}
+          </div>
+        )}
 
         {/* ── Chat Container ── */}
         <div className="guest-chat-wrapper">
