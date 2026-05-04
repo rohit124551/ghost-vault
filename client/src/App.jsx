@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useServerHealth } from './hooks/useServerHealth';
@@ -63,7 +63,15 @@ function OfflineOverlay() {
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
-  const { awake, checking } = useServerHealth();
+  const location = useLocation();
+  const isLandingPage = location.pathname === '/';
+  const isGuestRoom = location.pathname.startsWith('/r/');
+  
+  // Ping if:
+  // 1. Not on landing page AND (Logged in OR Guest Room)
+  const shouldPing = !isLandingPage && (!!user || isGuestRoom);
+  
+  const { awake, checking } = useServerHealth(shouldPing);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -80,8 +88,8 @@ export default function App() {
   }, [awake]);
 
   // Show wake-up screen while server is starting
-  // Skip wake-up screen if running in standalone mode (PWA) and user is already logged in
-  if (checking || !awake) return <ServerWakeUp />;
+  // Only show if we are on a page that requires the server (shouldPing is true)
+  if (shouldPing && (checking || !awake)) return <ServerWakeUp />;
 
   if (authLoading) return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-base)' }}><div className="spinner spinner-lg" /></div>;
 

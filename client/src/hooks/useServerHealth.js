@@ -5,18 +5,23 @@ const HEALTH_URL = `${API_URL}/api/health`;
 const SESSION_KEY = 'sv_server_awake';
 
 /**
- * useServerHealth — pings /api/health on mount.
+ * useServerHealth — pings /api/health on mount or when enabled.
  * - If cached awake in sessionStorage → skip check (instant)
  * - If no response in 4s → show wake-up screen, poll every 3s
  * - Once alive → cache in sessionStorage → { awake: true }
  */
-export function useServerHealth() {
+export function useServerHealth(enabled = true) {
   const [awake, setAwake] = useState(() => !!sessionStorage.getItem(SESSION_KEY));
-  const [checking, setChecking] = useState(() => !sessionStorage.getItem(SESSION_KEY));
+  const [checking, setChecking] = useState(() => !sessionStorage.getItem(SESSION_KEY) && enabled);
 
   useEffect(() => {
-    if (sessionStorage.getItem(SESSION_KEY)) return; // already confirmed awake this session
+    if (!enabled || awake) {
+      if (!enabled) setChecking(false);
+      return;
+    }
 
+    // If we're here, we need to check
+    setChecking(true);
     let cancelled = false;
     let pollTimer = null;
 
@@ -52,7 +57,7 @@ export function useServerHealth() {
       cancelled = true;
       clearTimeout(pollTimer);
     };
-  }, []);
+  }, [enabled, awake]);
 
   return { awake, checking };
 }
