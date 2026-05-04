@@ -26,15 +26,22 @@ export function useServerHealth() {
         const timeout = setTimeout(() => controller.abort(), 4000);
         const res = await fetch(HEALTH_URL, { signal: controller.signal });
         clearTimeout(timeout);
-        if (res.ok && !cancelled) {
+        
+        const data = await res.json().catch(() => ({}));
+        
+        if (res.ok && data.status === 'ok' && !cancelled) {
           sessionStorage.setItem(SESSION_KEY, '1');
           setAwake(true);
           setChecking(false);
+        } else if (!cancelled) {
+          // Server not ready or invalid response — keep polling
+          setChecking(false);
+          pollTimer = setTimeout(ping, 3000);
         }
       } catch {
-        // Server asleep or timeout — keep polling
+        // Network error or timeout — keep polling
         if (!cancelled) {
-          setChecking(false); // show wake-up screen
+          setChecking(false);
           pollTimer = setTimeout(ping, 3000);
         }
       }

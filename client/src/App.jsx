@@ -81,8 +81,7 @@ export default function App() {
 
   // Show wake-up screen while server is starting
   // Skip wake-up screen if running in standalone mode (PWA) and user is already logged in
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-  if ((checking || !awake) && !(isStandalone && user)) return <ServerWakeUp />;
+  if (checking || !awake) return <ServerWakeUp />;
 
   if (authLoading) return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-base)' }}><div className="spinner spinner-lg" /></div>;
 
