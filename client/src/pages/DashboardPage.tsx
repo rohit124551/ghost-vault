@@ -827,7 +827,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main 
+      <main
         className="flex-1 flex flex-col h-full overflow-hidden relative bg-bgBase cursor-default"
         onClick={() => { if (desktopSidebarOpen) setDesktopSidebarOpen(false); }}
       >
@@ -836,8 +836,8 @@ export default function DashboardPage() {
         {activeTab === 'nodes' ? (
           <div className="flex flex-1 h-full overflow-hidden bg-bgBase animate-fadeIn relative">
             {/* Terminal Scanline Overlay */}
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-[99]" 
-                 style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 4px, 4px 100%' }} />
+            <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-[99]"
+              style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 4px, 4px 100%' }} />
 
             {/* Split Pane Sidebar */}
             <div className={`w-full md:w-80 flex-col border-r border-borderBase bg-bgCard z-10 pb-16 md:pb-0 ${chatRoom ? 'hidden md:flex' : 'flex'}`}>
@@ -890,16 +890,16 @@ export default function DashboardPage() {
                   .filter(isRoomValid)
                   .filter(r => r.token.toLowerCase().includes(tunnelSearch.toLowerCase()) || (r.note && r.note.toLowerCase().includes(tunnelSearch.toLowerCase())))
                   .map(r => (
-                  <CompactRoomRow
-                    key={r.id}
-                    room={r}
-                    onQR={() => setQrRoom({ token: r.token, expiresAt: r.expires_at, view_once: r.view_once })}
-                    onRevoke={() => handleRevoke(r.token)}
-                    onPermanentDelete={() => handlePermanentDelete(r.token)}
-                    onChat={() => openChat(r)}
-                    isSelected={chatRoom && r.token === chatRoom.token}
-                  />
-                ))}
+                    <CompactRoomRow
+                      key={r.id}
+                      room={r}
+                      onQR={() => setQrRoom({ token: r.token, expiresAt: r.expires_at, view_once: r.view_once })}
+                      onRevoke={() => handleRevoke(r.token)}
+                      onPermanentDelete={() => handlePermanentDelete(r.token)}
+                      onChat={() => openChat(r)}
+                      isSelected={chatRoom && r.token === chatRoom.token}
+                    />
+                  ))}
 
                 <button
                   onClick={() => setShowHistory(!showHistory)}
@@ -933,11 +933,11 @@ export default function DashboardPage() {
             </div>
 
             {/* Chat Area */}
-            <div className={`flex-1 flex-col h-full bg-bgBase relative z-20 ${!chatRoom ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`flex-1 flex-col h-full bg-bgBase relative z-20 min-w-0 overflow-hidden ${!chatRoom ? 'hidden md:flex' : 'flex'}`}>
               {chatRoom ? (
                 <>
-                  <div className="p-4 border-b border-borderBase flex items-center justify-between bg-bgCard/80 backdrop-blur-md">
-                    <div className="flex items-center gap-3">
+                  <div className="p-4 border-b border-borderBase flex items-center justify-between bg-bgCard/80 backdrop-blur-md overflow-hidden">
+                    <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
                       <button className="md:hidden p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-md transition-colors" onClick={closeChat}>
                         <ChevronLeft size={20} />
                       </button>
@@ -950,9 +950,9 @@ export default function DashboardPage() {
                       <div className="w-10 h-10 rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center shrink-0">
                         <Terminal size={18} className="text-cyan-400" />
                       </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="text-cyan-400 font-bold tracking-wider text-sm">{chatRoom.token}</span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-cyan-400 font-bold tracking-wider text-sm truncate">{chatRoom.token}</span>
                           {isRoomValid(chatRoom) ? (
                             <span className="text-[9px] font-bold uppercase tracking-widest text-bgBase bg-cyan-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
                               <span className="w-1 h-1 rounded-full bg-bgBase animate-pulse" /> LIVE
@@ -1181,11 +1181,11 @@ export default function DashboardPage() {
                                   .filter(r => !isRoomValid(r))
                                   .filter(r => r.token.toLowerCase().includes(tunnelSearch.toLowerCase()) || (r.note && r.note.toLowerCase().includes(tunnelSearch.toLowerCase())))
                                   .map(r => (
-                                  <RoomRow key={r.id} room={r}
-                                    onChat={() => openChat(r)}
-                                    onPermanentDelete={() => handlePermanentDelete(r.token)}
-                                  />
-                                ))}
+                                    <RoomRow key={r.id} room={r}
+                                      onChat={() => openChat(r)}
+                                      onPermanentDelete={() => handlePermanentDelete(r.token)}
+                                    />
+                                  ))}
                               </div>
                             }
                           </motion.div>

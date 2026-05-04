@@ -43,6 +43,29 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
     toast.success('Link copied to clipboard', { id: 'copy-toast' });
   };
 
+  // Force download even for cross-origin (Cloudinary) URLs
+  const handleDownload = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = msg.file_url;
+    const filename = msg.file_name || 'download';
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch {
+      // Fallback: open in new tab if fetch fails (e.g. CORS)
+      window.open(url, '_blank', 'noreferrer');
+    }
+  };
+
   const handleDelete = (e) => {
     e.stopPropagation();
     if (!confirmDelete) {
@@ -73,6 +96,16 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
             {isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
           </span>
           <div className="bubble-actions">
+            {/* Download button — always shown for image/file messages */}
+            {(msg.type === 'image' || msg.type === 'file') && (
+              <button
+                className="bubble-action"
+                title="Download"
+                onClick={handleDownload}
+              >
+                <Download size={10} />
+              </button>
+            )}
             <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy Link">
               {copied ? <Check size={10} /> : <Copy size={10} />}
             </button>
@@ -104,7 +137,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
               onClick={() => setImgExpanded(true)}
               loading="lazy"
             />
-            <a href={msg.file_url} download={msg.file_name} className="bubble-img-dl" onClick={e => e.stopPropagation()} title="Download Image">
+            <a href={msg.file_url} className="bubble-img-dl" onClick={handleDownload} title="Download Image">
               <Download size={14} />
             </a>
             {imgExpanded && (
@@ -135,9 +168,9 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
                 <span className="bubble-file-size">{(msg.file_size / 1024).toFixed(1)} KB</span>
               )}
             </div>
-            <a href={msg.file_url} download={msg.file_name} className="bubble-file-dl" title="Download">
+            <button className="bubble-file-dl" onClick={handleDownload} title="Download">
               <Download size={13} />
-            </a>
+            </button>
           </div>
         )}
 

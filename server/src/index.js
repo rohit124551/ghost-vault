@@ -13,6 +13,9 @@ const { initSocket } = require('./socket');
 const app    = express();
 const server = http.createServer(app);
 
+const helmet = require('helmet');
+app.use(helmet());
+
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'http://localhost:5173',
