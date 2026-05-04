@@ -96,7 +96,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
 
         {/* ── Image ── */}
         {msg.type === 'image' && (
-          <>
+          <div className="bubble-img-wrapper">
             <img
               src={msg.file_url}
               alt={msg.file_name}
@@ -104,12 +104,25 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
               onClick={() => setImgExpanded(true)}
               loading="lazy"
             />
+            <a href={msg.file_url} download={msg.file_name} className="bubble-img-dl" onClick={e => e.stopPropagation()} title="Download Image">
+              <Download size={14} />
+            </a>
             {imgExpanded && (
               <div className="lightbox" onClick={() => setImgExpanded(false)}>
-                <img src={msg.file_url} alt={msg.file_name} className="lightbox-img" />
+                <div className="lightbox-content" onClick={e => e.stopPropagation()}>
+                  <img src={msg.file_url} alt={msg.file_name} className="lightbox-img" />
+                  <div className="lightbox-actions">
+                    <a href={msg.file_url} download={msg.file_name} className="lightbox-action-btn" title="Download">
+                      <Download size={20} /> <span>Download</span>
+                    </a>
+                    <button className="lightbox-action-btn lightbox-action-btn--close" onClick={() => setImgExpanded(false)}>
+                      <X size={20} /> <span>Close</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ── File ── */}
