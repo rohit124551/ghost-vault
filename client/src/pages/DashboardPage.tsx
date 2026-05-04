@@ -728,17 +728,17 @@ export default function DashboardPage() {
         <div className="flex-1 p-3 space-y-1.5 overflow-y-auto whitespace-nowrap">
           <div className="text-[10px] text-textGhost uppercase font-mono tracking-widest font-bold px-3 py-3">Core Modules</div>
 
-          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'dashboard' ? 'bg-accent/10 text-accent border-accent/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
+          <button onClick={() => { setActiveTab('dashboard'); setChatRoom(null); }} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'dashboard' ? 'bg-accent/10 text-accent border-accent/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
             <Activity size={16} /> Dashboard
           </button>
-          <button onClick={() => setActiveTab('assets')} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'assets' ? 'bg-accent/10 text-accent border-accent/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
+          <button onClick={() => { setActiveTab('assets'); setChatRoom(null); }} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'assets' ? 'bg-accent/10 text-accent border-accent/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
             <FolderLock size={16} /> Asset Store
           </button>
           <button onClick={() => { setActiveTab('nodes'); if (chatRoom) setDesktopSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'nodes' ? 'bg-accent/10 text-accent border-accent/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
             <MessageSquare size={16} /> Secure Tunnels
           </button>
 
-          <button onClick={() => navigate('/', { state: { fromSidebar: true } })} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent">
+          <button onClick={() => { navigate('/', { state: { fromSidebar: true } }); setChatRoom(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent">
             <Info size={16} /> About System
           </button>
         </div>
@@ -833,7 +833,7 @@ export default function DashboardPage() {
       >
         {uploadProgress && <div className="absolute top-0 left-0 right-0 h-0.5 bg-cyan-400 z-50 animate-glowPulse" />}
 
-        {(chatRoom || activeTab === 'nodes') ? (
+        {activeTab === 'nodes' ? (
           <div className="flex flex-1 h-full overflow-hidden bg-bgBase animate-fadeIn relative">
             {/* Terminal Scanline Overlay */}
             <div className="absolute inset-0 pointer-events-none opacity-[0.03] z-[99]" 
