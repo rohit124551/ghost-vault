@@ -38,6 +38,77 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
+  
+  // 0. Share Target Interception (POST /share-target)
+  if (request.method === 'POST' && url.pathname === '/share-target') {
+    event.respondWith(
+      (async () => {
+        const formData = await request.formData();
+        const mediaFiles = formData.getAll('media');
+        const title = formData.get('title') || '';
+        const text = formData.get('text') || '';
+        const shareUrl = formData.get('url') || '';
+
+        // Store files in IndexedDB (Blobs/Files are reliably persisted here)
+        const db = await new Promise((resolve, reject) => {
+          const req = indexedDB.open('shared_data_db', 1);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains('shared_files')) {
+              db.createObjectStore('shared_files');
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+
+        const tx = db.transaction('shared_files', 'readwrite');
+        const store = tx.objectStore('shared_files');
+        await store.put({
+          title,
+          text,
+          url: shareUrl,
+          files: mediaFiles,
+          timestamp: Date.now()
+        }, 'latest');
+
+        return Response.redirect('/share-target?shared=1', 303);
+      })()
+    );
+    return;
+  }
+
+  // Intercept the app's internal request to get the shared data
+  if (url.pathname === '/api/get-shared-data') {
+    event.respondWith(
+      (async () => {
+        try {
+          const db = await new Promise((resolve, reject) => {
+            const req = indexedDB.open('shared_data_db', 1);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+          const tx = db.transaction('shared_files', 'readonly');
+          const store = tx.objectStore('shared_files');
+          const data = await new Promise((resolve) => {
+            const getReq = store.get('latest');
+            getReq.onsuccess = () => resolve(getReq.result);
+            getReq.onerror = () => resolve(null);
+          });
+          
+          // Note: We can't JSON.stringify Files directly, but we can return them as a response if we wanted.
+          // However, it's better for the page to read directly from IDB.
+          // We return a simple 'ok' or the non-file metadata.
+          return new Response(JSON.stringify({ hasData: !!data, metadata: data ? { title: data.title, text: data.text, url: data.url } : null }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+        }
+      })()
+    );
+    return;
+  }
 
   // 1. API & Socket - Network Only
   if (url.pathname.startsWith('/api/') || url.pathname.includes('socket.io')) {

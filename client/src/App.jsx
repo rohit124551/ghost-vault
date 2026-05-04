@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage';
 import GuestRoomPage from './pages/GuestRoomPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LandingPage from './pages/LandingPage';
+import ShareTargetPage from './pages/ShareTargetPage';
 import InstallPrompt from './components/InstallPrompt';
 
 function ProtectedRoute({ children }) {
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/r/:token"      element={<GuestRoomPage />} />
         <Route path="/404"           element={<NotFoundPage />} />
+        <Route path="/share-target"  element={<ProtectedRoute><ShareTargetPage /></ProtectedRoute>} />
 
         <Route path="/dash" element={
           <ProtectedRoute>
