@@ -534,7 +534,13 @@ export default function DashboardPage() {
           return [...prev, msg];
         });
       }
-      if (msg.sender === 'guest') toast(`[GUEST] ${msg.content?.slice(0, 40) || 'uploaded payload'}`, { duration: 3000, style: { background: '#020617', color: '#06b6d4', border: '1px solid #06b6d4' } });
+      if (msg.sender === 'guest') {
+        toast(`[GUEST] ${msg.content?.slice(0, 40) || 'uploaded payload'}`, { 
+          duration: 3000, 
+          icon: '👤',
+          style: { background: '#020617', color: '#06b6d4', border: '1px solid #06b6d4' } 
+        });
+      }
     };
     const onRevoked = ({ token }: any) => setRooms(prev => prev.map(r => r.token === token ? { ...r, is_active: false } : r));
 
@@ -582,6 +588,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const handle = (e: ClipboardEvent) => {
+      if (chatRoom) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
       const img = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
       if (!img) return;
       const file = img.getAsFile();
@@ -593,7 +602,7 @@ export default function DashboardPage() {
     };
     window.addEventListener('paste', handle);
     return () => window.removeEventListener('paste', handle);
-  }, []);
+  }, [chatRoom]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     multiple: false,

@@ -81,6 +81,7 @@ export default function ShareTargetPage() {
       if (selectedDestination.type === 'room') {
         const roomToken = selectedDestination.token;
         // Upload via the messages/file endpoint
+        formData.append('sender', 'owner');
         await api.post(`/api/rooms/${roomToken}/messages/file`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });

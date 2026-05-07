@@ -199,11 +199,22 @@ export default function ChatWindow({
 }) {
   const [text, setText]       = useState('');
   const [sending, setSending] = useState(false);
-  const [filePreview, setFilePreview] = useState(null); // { file, name }
+  const [filePreviews, setFilePreviews] = useState([]); // Array of { file, name }
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewHeight, setPreviewHeight] = useState(0);
   const scrollRef   = useRef(null);
   const threadRef   = useRef(null);
   const fileInputRef = useRef(null);
+  const previewRef = useRef(null);
+
+  useEffect(() => {
+    if (previewRef.current) {
+      setPreviewHeight(previewRef.current.offsetHeight);
+    } else {
+      setPreviewHeight(0);
+    }
+  }, [filePreviews]);
 
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
@@ -229,27 +240,116 @@ export default function ChatWindow({
   };
 
   const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === 'Enter') {
+      if (e.ctrlKey || e.shiftKey) {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          const cursor = e.target.selectionStart;
+          const newValue = text.slice(0, cursor) + '\n' + text.slice(e.target.selectionEnd);
+          setText(newValue);
+          setTimeout(() => {
+            e.target.selectionStart = cursor + 1;
+            e.target.selectionEnd = cursor + 1;
+          }, 0);
+        }
+        return;
+      }
+      e.preventDefault();
+      if (filePreviews.length > 0 && !sending) {
+        handleFileSend();
+      } else if (text.trim() && !sending) {
+        handleSend();
+      }
+    }
+  };
+
+  const handlePaste = (e) => {
+    if (disabled) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const newFiles = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('video') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          newFiles.push({ file, name: file.name || `Pasted_Media_${Date.now()}_${i}.${file.type.split('/')[1]}` });
+        }
+      }
+    }
+    if (newFiles.length > 0) {
+      setFilePreviews(prev => [...prev, ...newFiles]);
+      e.preventDefault();
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (disabled) return;
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files).map(f => ({ file: f, name: f.name }));
+      setFilePreviews(prev => [...prev, ...droppedFiles]);
+    }
   };
 
   const handleFileSelect = (e) => {
     if (disabled) return;
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFilePreview({ file: f, name: f.name });
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const selectedFiles = files.map(f => ({ file: f, name: f.name }));
+    setFilePreviews(prev => [...prev, ...selectedFiles]);
     e.target.value = '';
   };
 
+  const removeFile = (index) => {
+    setFilePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleFileSend = async () => {
-    if (!filePreview || sending || disabled) return;
+    if (filePreviews.length === 0 || sending || disabled) return;
     setSending(true);
-    await onSendFile(filePreview.file);
-    setFilePreview(null);
-    setSending(false);
+    try {
+      for (const p of filePreviews) {
+        await onSendFile(p.file);
+      }
+      setFilePreviews([]);
+    } catch (err) {
+      toast.error('Failed to send some files');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className="chat-window" style={{ position: 'relative' }}>
+    <div 
+      className={`chat-window ${isDragging ? 'chat-window--dragging' : ''}`} 
+      style={{ position: 'relative' }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="chat-drag-overlay">
+          <div className="chat-drag-content">
+            <Download size={32} />
+            <p style={{ fontWeight: 600, fontSize: 16, margin: 0 }}>Drop media to share</p>
+          </div>
+        </div>
+      )}
       <AnimatePresence initial={false}>
         {showScrollBtn && (
           <motion.button
@@ -259,6 +359,7 @@ export default function ChatWindow({
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             className="chat-scroll-bottom"
+            style={{ bottom: 85 + previewHeight }}
             onClick={scrollToBottom}
           >
             <ChevronDown size={18} strokeWidth={3} />
@@ -294,20 +395,26 @@ export default function ChatWindow({
         <div ref={scrollRef} />
       </div>
 
-      {/* ── File preview chip ── */}
-      {filePreview && !disabled && (
-        <div className="chat-file-preview">
-          <File size={13} />
-          <span className="chat-file-preview-name">{filePreview.name}</span>
-          <button className="chat-file-preview-remove" onClick={() => setFilePreview(null)}>
-            <X size={11} />
-          </button>
+      {/* ── File previews ── */}
+      {filePreviews.length > 0 && !disabled && (
+        <div className="chat-previews-container" ref={previewRef}>
+          <div className="chat-previews-list">
+            {filePreviews.map((p, idx) => (
+              <div key={idx} className="chat-file-chip">
+                <File size={13} />
+                <span className="chat-file-chip-name">{p.name}</span>
+                <button className="chat-file-chip-remove" onClick={() => removeFile(idx)}>
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
           <button
-            className="btn btn-primary btn-sm chat-file-send-btn"
+            className="btn btn-primary btn-sm chat-files-send-btn"
             onClick={handleFileSend}
             disabled={sending}
           >
-            {sending ? <span className="spinner" style={{width:12,height:12}} /> : 'Send'}
+            {sending ? <span className="spinner" style={{width:12,height:12}} /> : `Send ${filePreviews.length > 1 ? filePreviews.length + ' Files' : 'File'}`}
           </button>
         </div>
       )}
@@ -335,6 +442,7 @@ export default function ChatWindow({
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
+              multiple
               style={{ display: 'none' }}
             />
             <textarea
@@ -343,6 +451,7 @@ export default function ChatWindow({
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={handleKey}
+              onPaste={handlePaste}
               rows={1}
               disabled={sending}
             />
