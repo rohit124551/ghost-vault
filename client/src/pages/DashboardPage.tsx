@@ -47,7 +47,7 @@ function NameDialog({ file, defaultName, onSaveLocal, onUpload, onCancel }: any)
   const [expiry, setExpiry] = useState('');
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000] p-5 animate-fadeIn" onClick={onCancel}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-5 animate-fadeIn" onClick={onCancel}>
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -143,7 +143,7 @@ function CreateRoomModal({ onCreate, onClose }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000] p-5 animate-fadeIn" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-5 animate-fadeIn" onClick={onClose}>
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -250,7 +250,7 @@ function QRModal({ room, onClose, onRevoke }: any) {
   const copy = () => { navigator.clipboard.writeText(link); toast.success('Link copied'); };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000] p-5 animate-fadeIn" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-5 animate-fadeIn" onClick={onClose}>
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}

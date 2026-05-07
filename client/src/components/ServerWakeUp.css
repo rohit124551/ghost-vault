@@ -1,11 +1,16 @@
 /* ══ ServerWakeUp ══ */
 .wakeup-root {
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-base);
   padding: 40px 20px;
+  z-index: 9998; /* High, but below modals/dialogs */
 }
 
 .wakeup-content {

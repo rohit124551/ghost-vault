@@ -88,17 +88,15 @@ export default function App() {
     if (awake) window.dispatchEvent(new Event('sv:server-ready'));
   }, [awake]);
 
-  // Show wake-up screen while server is starting
-  // Only show if we are on a page that requires the server (shouldPing is true)
-  if (shouldPing && (checking || !awake)) return <ServerWakeUp />;
-
-  if (authLoading) return <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-base)' }}><div className="spinner spinner-lg" /></div>;
-
   return (
     <>
       <PanicMode />
       {!isOnline && <OfflineOverlay />}
       <InstallPrompt />
+      
+      {/* Show wake-up screen while server is starting as an overlay */}
+      {shouldPing && (checking || !awake) && <ServerWakeUp />}
+
       <Routes>
         <Route path="/login"         element={user ? <Navigate to="/dash" /> : <LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
