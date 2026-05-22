@@ -61,3 +61,21 @@ CREATE INDEX IF NOT EXISTS messages_room_idx ON messages(room_id, created_at ASC
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 -- All read/write via service_role key on backend, bypassing RLS
+
+
+-- ── Bug Reports ─────────────────────────────────────────────────────────────
+-- Run manually if not yet created. Backend falls back to local JSON if table missing.
+CREATE TABLE IF NOT EXISTS bug_reports (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  description TEXT NOT NULL,
+  email       TEXT,                        -- optional contact email from reporter
+  page        TEXT,                        -- which page/context the bug occurred on
+  role        TEXT DEFAULT 'guest',        -- 'guest' or 'owner'
+  user_agent  TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS bug_reports_created_idx ON bug_reports(created_at DESC);
+
+ALTER TABLE bug_reports ENABLE ROW LEVEL SECURITY;
+-- All access via service_role key on backend, bypassing RLS

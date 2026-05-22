@@ -22,6 +22,7 @@ export default {
         success: 'var(--success)',
         warning: 'var(--warning)',
         info: 'var(--info)',
+        danger: '#ef4444',
       },
       fontFamily: {
         display: ['Inter', 'system-ui', 'sans-serif'],

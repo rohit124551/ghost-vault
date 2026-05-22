@@ -13,9 +13,11 @@ import {
   Clipboard, Upload, Trash2, Download, Copy, Link2,
   Plus, QrCode, X, Check, Timer, Eye, Info,
   File, Image as ImageIcon, ChevronLeft, ChevronRight, ChevronDown, HardDriveDownload, MessageSquare, Search,
-  Terminal, ShieldAlert, Activity, Database, Server, FolderLock, Menu, LogOut, Code, Cpu, Sun, Moon, Ghost, Home
+  Terminal, ShieldAlert, Activity, Database, Server, FolderLock, Menu, LogOut, Code, Cpu, Sun, Moon, Ghost, Home,
+  Bug, Pencil, Zap, RefreshCw, MailOpen
 } from 'lucide-react';
 import GhostLogo from '../components/GhostLogo';
+import { copyToClipboard } from '../utils/clipboard';
 
 const BASE_URL = window.location.origin;
 
@@ -119,6 +121,7 @@ function CreateRoomModal({ onCreate, onClose }: any) {
   const [customMinutes, setCustomMinutes] = useState('');
   const [viewOnce, setViewOnce] = useState(false);
   const [note, setNote] = useState('');
+  const [customToken, setCustomToken] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {
@@ -135,10 +138,13 @@ function CreateRoomModal({ onCreate, onClose }: any) {
         viewOnce,
         note,
         ...(totalMinutes > 0 ? { expiresInMinutes: totalMinutes } : {}),
+        ...(customToken.trim() ? { customToken: customToken.trim() } : {}),
       });
       onCreate(res.data);
       onClose();
-    } catch { toast.error('Tunnel creation failed'); }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Tunnel creation failed');
+    }
     finally { setLoading(false); }
   };
 
@@ -204,6 +210,18 @@ function CreateRoomModal({ onCreate, onClose }: any) {
           placeholder="e.g. For John - Invoice"
         />
 
+        <label className="block text-[10px] font-mono text-textGhost uppercase tracking-widest mb-1.5">
+          Custom Token Link <span className="text-textGhost normal-case tracking-normal font-normal opacity-60">(Optional — auto-generated if empty)</span>
+        </label>
+        <input
+          className="w-full h-10 px-3.5 bg-bgBase border border-borderBase rounded-sm text-cyan-400 text-sm font-mono outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all mb-5"
+          value={customToken}
+          onChange={e => setCustomToken(e.target.value.replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase())}
+          placeholder="e.g. rohit-invoice or client2024"
+          maxLength={64}
+        />
+        {customToken && <div className="text-[10px] font-mono text-cyan-400/70 -mt-4 mb-4">→ /r/{customToken || '…'}</div>}
+
         <label className="flex items-center gap-3 cursor-pointer mb-6 p-3 border border-borderBase bg-bgBase rounded-sm hover:border-borderActive transition-colors">
           <input
             type="checkbox"
@@ -237,8 +255,210 @@ function CreateRoomModal({ onCreate, onClose }: any) {
   );
 }
 
+// ── Edit Room Modal ───────────────────────────────────────────────────────────
+function EditRoomModal({ room, onClose, onUpdated }: any) {
+  const [note, setNote] = useState(room.note || '');
+  const [extendOption, setExtendOption] = useState('');
+  const [isActive, setIsActive] = useState(room.is_active);
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const body: any = { note };
+      if (!isActive && room.is_active) {
+        body.isActive = false;
+      } else if (isActive && !room.is_active) {
+        body.isActive = true;
+        // Also ensure expiry is in the future
+        if (room.expires_at && new Date(room.expires_at) < new Date()) {
+          body.clearExpiry = true; // Reactivating an expired room — clear TTL
+        }
+      }
+      if (extendOption === 'infinite') {
+        body.clearExpiry = true;
+      } else if (extendOption === '30') {
+        body.addMinutes = 30;
+      } else if (extendOption === '60') {
+        body.addMinutes = 60;
+      } else if (extendOption === '120') {
+        body.addMinutes = 120;
+      } else if (extendOption === '1440') {
+        body.addMinutes = 1440;
+      }
+      const res = await api.patch(`/api/rooms/${room.token}`, body);
+      toast.success('Tunnel updated');
+      onUpdated(res.data.room);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Update failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const active = isRoomValid(room);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-5 animate-fadeIn" onClick={onClose}>
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-[400px] bg-bgCard border border-borderActive rounded-sm p-7 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="font-display text-lg font-bold text-textPrimary mb-1 tracking-tight flex items-center gap-2">
+          <Pencil size={16} className="text-cyan-400" /> Edit Tunnel
+        </div>
+        <div className="font-mono text-[10px] text-cyan-400 mb-6 uppercase tracking-widest">/r/{room.token}</div>
+
+        <label className="block text-[10px] font-mono text-textGhost uppercase tracking-widest mb-1.5">Note / Purpose</label>
+        <input
+          className="w-full h-10 px-3.5 bg-bgBase border border-borderBase rounded-sm text-textPrimary text-sm font-mono outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all mb-5"
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          placeholder="e.g. For John - Invoice"
+        />
+
+        <label className="block text-[10px] font-mono text-textGhost uppercase tracking-widest mb-1.5">Extend TTL</label>
+        <select
+          className="w-full h-10 px-3.5 bg-bgBase border border-borderBase rounded-sm text-textPrimary text-sm font-mono outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all mb-5"
+          value={extendOption}
+          onChange={e => setExtendOption(e.target.value)}
+        >
+          <option value="">No change</option>
+          <option value="30">+ 30 Minutes</option>
+          <option value="60">+ 1 Hour</option>
+          <option value="120">+ 2 Hours</option>
+          <option value="1440">+ 24 Hours</option>
+          <option value="infinite">Set Infinite (Never Expire)</option>
+        </select>
+
+        <label className="flex items-center gap-3 cursor-pointer mb-6 p-3 border border-borderBase bg-bgBase rounded-sm hover:border-borderActive transition-colors">
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={e => setIsActive(e.target.checked)}
+            className="w-4 h-4 rounded-sm text-accent focus:ring-accent bg-bgCard border-borderActive"
+          />
+          <div className="flex flex-col">
+            <span className="text-sm text-textPrimary font-medium">Active</span>
+            <span className="text-xs text-textSecondary font-mono mt-0.5">
+              {isActive && !active ? 'Will reactivate this tunnel' : isActive ? 'Currently live' : 'Will kill this tunnel'}
+            </span>
+          </div>
+        </label>
+
+        <div className="flex gap-3 justify-end">
+          <button
+            className="px-4 h-10 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm text-sm transition-colors font-medium border border-transparent"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            className="flex items-center gap-2 px-6 h-10 bg-accent hover:bg-accentHover text-white border border-accent rounded-sm text-sm font-medium transition-colors disabled:opacity-50"
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? <><span className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Saving...</> : <><Zap size={14} /> Apply Changes</>}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Admin Bug Report Modal ─────────────────────────────────────────────────────
+function AdminBugModal({ onClose }: any) {
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | sending | success | error
+  const [errMsg, setErrMsg] = useState('');
+
+  const handleSubmit = async () => {
+    if (description.trim().length < 10) {
+      setErrMsg('Please describe the bug in at least 10 characters.');
+      return;
+    }
+    setStatus('sending');
+    setErrMsg('');
+    try {
+      await api.post('/api/bugs', {
+        description: description.trim(),
+        page: 'admin-dashboard',
+        role: 'owner',
+      });
+      setStatus('success');
+    } catch (err: any) {
+      setErrMsg(err.response?.data?.error || 'Failed to submit report. Please try again.');
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-5 animate-fadeIn" onClick={onClose}>
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-[420px] bg-bgCard border border-borderActive rounded-sm p-7 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {status === 'success' ? (
+          <div className="flex flex-col items-center text-center gap-4 py-4">
+            <div className="text-5xl">✅</div>
+            <div className="font-display text-xl font-bold text-textPrimary">Bug Reported!</div>
+            <p className="text-sm text-textSecondary">Report logged. Our team will review it.</p>
+            <p className="text-xs text-textGhost">Or email: <a href="mailto:support@rohitkumarranjan.in" className="text-cyan-400 hover:underline">support@rohitkumarranjan.in</a></p>
+            <button className="mt-2 px-6 py-2 text-sm font-bold bg-accent text-white rounded-sm hover:bg-accentHover transition-colors" onClick={onClose}>Close</button>
+          </div>
+        ) : (
+          <>
+            <div className="font-display text-lg font-bold text-textPrimary mb-2 tracking-tight flex items-center gap-2">
+              <Bug size={18} className="text-purple-400" /> Report a Bug
+            </div>
+            <p className="text-xs text-textGhost font-mono mb-5">Direct support: <a href="mailto:support@rohitkumarranjan.in" className="text-cyan-400 hover:underline">support@rohitkumarranjan.in</a></p>
+
+            <label className="block text-[10px] font-mono text-textGhost uppercase tracking-widest mb-1.5">Description <span className="text-danger">*</span></label>
+            <textarea
+              className="w-full min-h-[100px] px-3.5 py-3 bg-bgBase border border-borderBase rounded-sm text-textPrimary text-sm font-mono outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all resize-y mb-5"
+              placeholder="Describe what happened and how to reproduce it..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              disabled={status === 'sending'}
+            />
+
+            {errMsg && <div className="text-xs text-danger bg-danger/10 border border-danger/30 rounded-sm p-3 mb-4">{errMsg}</div>}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 h-10 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm text-sm transition-colors font-medium border border-transparent"
+                onClick={onClose}
+                disabled={status === 'sending'}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex items-center gap-2 px-5 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-sm text-sm font-medium transition-colors disabled:opacity-50"
+                onClick={handleSubmit}
+                disabled={status === 'sending' || !description.trim()}
+              >
+                {status === 'sending'
+                  ? <><span className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Submitting...</>
+                  : <><Bug size={14} /> Submit</>}
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 function QRModal({ room, onClose, onRevoke }: any) {
   const [countdown, setCountdown] = useState(() => timeLeft(room.expiresAt));
+  const [copied, setCopied] = useState(false);
   const link = `${BASE_URL}/r/${room.token}`;
 
   useEffect(() => {
@@ -247,7 +467,11 @@ function QRModal({ room, onClose, onRevoke }: any) {
     return () => clearInterval(id);
   }, [room.expiresAt]);
 
-  const copy = () => { navigator.clipboard.writeText(link); toast.success('Link copied'); };
+  const copy = () => { 
+    copyToClipboard(link, null); // suppress global toast
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[10000] p-5 animate-fadeIn" onClick={onClose}>
@@ -269,9 +493,24 @@ function QRModal({ room, onClose, onRevoke }: any) {
           <QRCodeSVG value={link} size={180} bgColor="transparent" fgColor="#020617" level="M" />
         </div>
 
-        <div className="w-full flex items-center justify-between bg-bgBase border border-borderBase p-2 rounded-sm mb-4">
+        <div className="w-full flex items-center justify-between bg-bgBase border border-borderBase p-2 rounded-sm mb-4 relative">
           <code className="text-xs text-textSecondary truncate px-2 font-mono">{link}</code>
-          <button className="p-1.5 text-textPrimary hover:bg-bgCard rounded-sm transition-colors shrink-0 border border-borderBase bg-bgCard" onClick={copy}><Copy size={14} /></button>
+          <button className="p-1.5 text-textPrimary hover:bg-bgCard rounded-sm transition-colors shrink-0 border border-borderBase bg-bgCard" onClick={copy}>
+            {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+          </button>
+          
+          <AnimatePresence>
+            {copied && (
+              <motion.div 
+                initial={{ opacity: 0, y: 5 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: 5 }} 
+                className="absolute -top-8 right-0 bg-success/10 border border-success/30 text-success text-[11px] font-bold px-2 py-1 rounded-sm shadow-md whitespace-nowrap"
+              >
+                Copied to clipboard!
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="w-full flex gap-2">
@@ -301,9 +540,14 @@ function QRModal({ room, onClose, onRevoke }: any) {
 // ── Components ────────────────────────────────────────────────────────────────
 
 function UploadRow({ upload, onDelete }: any) {
+  const [copied, setCopied] = useState(false);
   const isImg = upload.file_type?.startsWith('image/');
   const isExp = upload.expires_at && new Date(upload.expires_at) < new Date();
-  const copy = () => { navigator.clipboard.writeText(upload.cloudinary_url); toast.success('URL copied'); };
+  const copy = () => { 
+    copyToClipboard(upload.cloudinary_url, 'URL copied'); 
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
   const dl = () => { const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click(); };
 
   return (
@@ -336,14 +580,16 @@ function UploadRow({ upload, onDelete }: any) {
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={dl} title="Download"><Download size={14} /></button>
-        <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={copy} title="Copy URL"><Copy size={14} /></button>
+        <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={copy} title="Copy URL">
+          {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+        </button>
         <button className="p-2 text-textSecondary hover:text-danger hover:bg-danger/10 hover:border-danger/20 rounded-sm transition-colors border border-transparent" onClick={() => onDelete(upload.id)} title="Delete"><Trash2 size={14} /></button>
       </div>
     </motion.div>
   );
 }
 
-function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, isSelected }: any) {
+function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdit, isSelected }: any) {
   const [countdown, setCountdown] = useState(() => timeLeft(room.expires_at));
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -403,6 +649,7 @@ function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, isSelected }
 
       <div className="flex items-center gap-1">
         <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={onChat} title="Terminal"><MessageSquare size={14} /></button>
+        <button className="p-2 text-textSecondary hover:text-purple-400 hover:bg-purple-400/10 rounded-sm transition-colors border border-transparent hover:border-purple-400/20" onClick={onEdit} title="Edit Tunnel"><Pencil size={14} /></button>
         {active && (
           <>
             <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={onQR} title="QR"><QrCode size={14} /></button>
@@ -427,7 +674,7 @@ function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, isSelected }
   );
 }
 
-function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, isSelected }: any) {
+function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdit, isSelected }: any) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const active = isRoomValid(room);
 
@@ -445,6 +692,7 @@ function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, isSel
       </div>
 
       <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <button className="p-1.5 text-textGhost hover:text-purple-400 transition-colors" onClick={(e) => { e.stopPropagation(); onEdit?.(); }} title="Edit"><Pencil size={11} /></button>
         {active && (
           <>
             <button className="p-1.5 text-textGhost hover:text-textPrimary transition-colors" onClick={(e) => { e.stopPropagation(); onQR(); }}><QrCode size={12} /></button>
@@ -480,6 +728,8 @@ export default function DashboardPage() {
   const [pendingFile, setPendingFile] = useState<any>(null);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [qrRoom, setQrRoom] = useState<any>(null);
+  const [editRoom, setEditRoom] = useState<any>(null);
+  const [showBugModal, setShowBugModal] = useState(false);
   const [chatRoom, setChatRoom] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -495,6 +745,8 @@ export default function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [clientIp, setClientIp] = useState<string>('FETCHING...');
   const [tunnelSearch, setTunnelSearch] = useState('');
+  const [bugReports, setBugReports] = useState<any[]>([]);
+  const [bugLoading, setBugLoading] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -520,6 +772,15 @@ export default function DashboardPage() {
   }, [page]);
 
   useEffect(() => {
+    if (activeTab !== 'bugs') return;
+    setBugLoading(true);
+    api.get('/api/bugs')
+      .then(res => setBugReports(res.data.reports || []))
+      .catch(() => toast.error('Failed to load bug reports'))
+      .finally(() => setBugLoading(false));
+  }, [activeTab]);
+
+  useEffect(() => {
     if (!socket || !rooms.length) return;
     rooms.forEach(r => joinRoom(r.token));
 
@@ -543,11 +804,33 @@ export default function DashboardPage() {
       }
     };
     const onRevoked = ({ token }: any) => setRooms(prev => prev.map(r => r.token === token ? { ...r, is_active: false } : r));
+    const onMessageDeleted = ({ id, roomToken }: any) => {
+      if (chatRoom && roomToken === chatRoom.token) {
+        setChatMessages(prev => prev.filter(m => m.id !== id));
+      }
+    };
+    const onRoomUpdated = ({ token, expiresAt, note: newNote, isActive }: any) => {
+      setRooms(prev => prev.map(r => r.token === token
+        ? { ...r, expires_at: expiresAt, note: newNote, is_active: isActive ?? r.is_active }
+        : r
+      ));
+      if (chatRoom?.token === token) {
+        setChatRoom((prev: any) => ({ ...prev, expires_at: expiresAt, note: newNote, is_active: isActive ?? prev?.is_active }));
+      }
+    };
 
     socket.on('new_file', onFile);
     socket.on('new_message', onMessage);
     socket.on('room_revoked', onRevoked);
-    return () => { socket.off('new_file', onFile); socket.off('new_message', onMessage); socket.off('room_revoked', onRevoked); };
+    socket.on('message_deleted', onMessageDeleted);
+    socket.on('room_updated', onRoomUpdated);
+    return () => {
+      socket.off('new_file', onFile);
+      socket.off('new_message', onMessage);
+      socket.off('room_revoked', onRevoked);
+      socket.off('message_deleted', onMessageDeleted);
+      socket.off('room_updated', onRoomUpdated);
+    };
   }, [socket, rooms, chatRoom, joinRoom]);
 
   useEffect(() => {
@@ -583,6 +866,17 @@ export default function DashboardPage() {
     setChatRoom(null);
     if (window.history.state === 'chat-view') {
       window.history.back();
+    }
+  };
+
+  const handleDeleteBug = async (id: string) => {
+    if (!window.confirm('Delete this bug report?')) return;
+    try {
+      await api.delete(`/api/bugs/${id}`);
+      setBugReports(prev => prev.filter(b => b.id !== id));
+      toast.success('Bug report deleted');
+    } catch (err) {
+      toast.error('Failed to delete bug report');
     }
   };
 
@@ -635,7 +929,7 @@ export default function DashboardPage() {
     if (expiresIn) fd.append('expiresIn', expiresIn);
     try {
       const res = await api.post('/api/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      navigator.clipboard.writeText(res.data.url).catch(() => { });
+      copyToClipboard(res.data.url, 'Share link copied to clipboard!');
       toast.success('Deployed. URL copied.');
       const uRes = await api.get('/api/uploads?page=1');
       setUploads(uRes.data.uploads || []); setTotalUploads(uRes.data.total || 0); setPage(1);
@@ -710,8 +1004,19 @@ export default function DashboardPage() {
   };
 
   const handleDeleteMessage = async (id: string) => {
-    try { await api.delete(`/api/rooms/${chatRoom.token}/messages/${id}`); setChatMessages(prev => prev.filter(m => m.id !== id)); }
-    catch { toast.error('RM failed'); }
+    try { 
+      await api.delete(`/api/rooms/${chatRoom.token}/messages/${id}`); 
+      setChatMessages(prev => prev.filter(m => m.id !== id)); 
+      toast.success('Message deleted');
+    }
+    catch { toast.error('Failed to delete message'); }
+  };
+
+  const handleRoomUpdate = (updatedRoom: any) => {
+    setRooms(prev => prev.map(r => r.token === updatedRoom.token ? { ...r, ...updatedRoom } : r));
+    if (chatRoom?.token === updatedRoom.token) {
+      setChatRoom((prev: any) => ({ ...prev, ...updatedRoom }));
+    }
   };
 
   const totalPages = Math.ceil(totalUploads / 10);
@@ -745,6 +1050,10 @@ export default function DashboardPage() {
           </button>
           <button onClick={() => { setActiveTab('nodes'); if (chatRoom) setDesktopSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'nodes' ? 'bg-accent/10 text-accent border-accent/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
             <MessageSquare size={16} /> Secure Tunnels
+          </button>
+          <button onClick={() => { setActiveTab('bugs'); setChatRoom(null); }} className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors ${activeTab === 'bugs' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent'}`}>
+            <Bug size={16} /> Bug Reports
+            {bugReports.length > 0 && <span className="ml-auto text-[9px] font-mono font-bold bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-sm border border-purple-500/20">{bugReports.length}</span>}
           </button>
 
           <button onClick={() => { navigate('/', { state: { fromSidebar: true } }); setChatRoom(null); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-sm border transition-colors text-textSecondary hover:text-textPrimary hover:bg-bgHover border-transparent">
@@ -818,7 +1127,11 @@ export default function DashboardPage() {
                   <MessageSquare size={24} />
                   <span className="text-[10px] font-bold">Tunnels</span>
                 </button>
-
+                <button onClick={() => { setActiveTab('bugs'); setSidebarOpen(false); }} className={`flex flex-col items-center justify-center gap-3 p-3 rounded-2xl transition-colors relative ${activeTab === 'bugs' ? 'bg-purple-500/10 text-purple-400' : 'bg-bgBase text-textSecondary hover:text-textPrimary border border-borderBase'}`}>
+                  <Bug size={24} />
+                  <span className="text-[10px] font-bold">Bugs</span>
+                  {bugReports.length > 0 && <span className="absolute top-1 right-1 w-4 h-4 text-[8px] flex items-center justify-center bg-purple-500 text-white rounded-full font-bold">{bugReports.length > 9 ? '9+' : bugReports.length}</span>}
+                </button>
               </div>
 
 
@@ -906,6 +1219,7 @@ export default function DashboardPage() {
                       onRevoke={() => handleRevoke(r.token)}
                       onPermanentDelete={() => handlePermanentDelete(r.token)}
                       onChat={() => openChat(r)}
+                      onEdit={() => setEditRoom(r)}
                       isSelected={chatRoom && r.token === chatRoom.token}
                     />
                   ))}
@@ -932,6 +1246,7 @@ export default function DashboardPage() {
                           room={r}
                           onPermanentDelete={() => handlePermanentDelete(r.token)}
                           onChat={() => openChat(r)}
+                          onEdit={() => setEditRoom(r)}
                           isSelected={chatRoom && r.token === chatRoom.token}
                         />
                       ))}
@@ -1012,6 +1327,134 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        ) : activeTab === 'bugs' ? (
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-20 md:pb-8 animate-fadeIn">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+              <div>
+                <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-3">
+                  {!desktopSidebarOpen && (
+                    <button onClick={() => setDesktopSidebarOpen(true)} className="hidden md:flex items-center justify-center text-textSecondary hover:text-textPrimary transition-colors">
+                      <Menu size={24} />
+                    </button>
+                  )}
+                  <Bug size={26} className="text-purple-400" /> Bug Reports
+                </h1>
+                <p className="text-xs text-textGhost font-mono mt-2">All user-submitted reports — Supabase DB + local fallback merged</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setBugLoading(true);
+                    api.get('/api/bugs')
+                      .then(res => setBugReports(res.data.reports || []))
+                      .catch(() => toast.error('Refresh failed'))
+                      .finally(() => setBugLoading(false));
+                  }}
+                  className="flex items-center gap-2 px-3 h-9 rounded-sm border border-borderBase bg-bgCard text-textSecondary hover:text-textPrimary hover:bg-bgHover text-xs font-mono font-bold uppercase tracking-widest transition-colors disabled:opacity-40"
+                  disabled={bugLoading}
+                >
+                  <RefreshCw size={13} className={bugLoading ? 'animate-spin' : ''} /> Refresh
+                </button>
+                <div className="font-mono text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1.5 rounded-sm">
+                  {bugReports.length} TOTAL
+                </div>
+              </div>
+            </div>
+
+            {/* Support email banner */}
+            <div className="flex items-center gap-3 p-4 mb-6 bg-cyan-400/5 border border-cyan-400/20 rounded-sm">
+              <MailOpen size={18} className="text-cyan-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-mono text-textGhost uppercase tracking-widest">Direct support channel</div>
+                <a href="mailto:support@rohitkumarranjan.in" className="text-sm font-bold text-cyan-400 hover:underline">support@rohitkumarranjan.in</a>
+              </div>
+              <span className="text-[9px] font-mono text-textGhost uppercase tracking-widest border border-borderBase px-2 py-1 rounded-sm shrink-0">Admin Only</span>
+            </div>
+
+            {/* Reports list */}
+            {bugLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-28 bg-bgCard border border-borderBase rounded-sm animate-pulse" />
+                ))}
+              </div>
+            ) : bugReports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-borderBase rounded-sm text-center">
+                <Bug size={40} className="text-textGhost mb-4 opacity-30" />
+                <div className="font-mono text-sm text-textGhost uppercase tracking-widest">No reports yet</div>
+                <p className="text-xs text-textGhost mt-2 opacity-60">Bug reports from guests and admins will appear here</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                <div className="flex flex-col gap-3">
+                  {bugReports.map((report: any, i: number) => (
+                    <motion.div
+                      key={report.id || i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04, duration: 0.2 }}
+                      className="bg-bgCard border border-borderBase rounded-sm p-5 hover:border-purple-500/30 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-sm border ${
+                            report.role === 'owner'
+                              ? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20'
+                              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          }`}>
+                            {report.role === 'owner' ? '👤 Admin' : '🧑 Guest'}
+                          </span>
+                          <span className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-sm border ${
+                            report.source === 'supabase'
+                              ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                              : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                          }`}>
+                            {report.source === 'supabase' ? 'DB: Supabase' : 'DB: Local'}
+                          </span>
+                          {report.page && (
+                            <span className="text-[9px] font-mono text-textGhost bg-bgBase border border-borderBase px-2 py-0.5 rounded-sm">
+                              {report.page}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-textGhost shrink-0">
+                          {new Date(report.created_at).toLocaleString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-textPrimary leading-relaxed font-ui whitespace-pre-wrap mb-4 bg-bgBase border border-borderBase rounded-sm p-3">
+                        {report.description}
+                      </p>
+
+                      <div className="flex items-center justify-between border-t border-borderBase pt-3">
+                        {report.email ? (
+                          <a href={`mailto:${report.email}`} className="flex items-center gap-1.5 text-xs font-mono text-cyan-400 hover:underline">
+                            <MailOpen size={11} /> {report.email}
+                          </a>
+                        ) : (
+                          <span className="text-[10px] font-mono text-textGhost italic">No contact email</span>
+                        )}
+                        <div className="flex items-center gap-3">
+                          <span className="text-[9px] font-mono text-textGhost opacity-40">#{i + 1} of {bugReports.length}</span>
+                          <button
+                            onClick={() => handleDeleteBug(report.id)}
+                            className="p-1.5 text-textGhost hover:text-danger hover:bg-danger/10 rounded-sm transition-colors"
+                            title="Delete Bug Report"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </AnimatePresence>
+            )}
           </div>
         ) : (
           <>
@@ -1161,6 +1604,7 @@ export default function DashboardPage() {
                                 onRevoke={() => handleRevoke(r.token)}
                                 onPermanentDelete={() => handlePermanentDelete(r.token)}
                                 onChat={() => openChat(r)}
+                                onEdit={() => setEditRoom(r)}
                               />
                             ))}
                           </AnimatePresence>
@@ -1193,6 +1637,7 @@ export default function DashboardPage() {
                                     <RoomRow key={r.id} room={r}
                                       onChat={() => openChat(r)}
                                       onPermanentDelete={() => handlePermanentDelete(r.token)}
+                                      onEdit={() => setEditRoom(r)}
                                     />
                                   ))}
                               </div>
@@ -1208,28 +1653,41 @@ export default function DashboardPage() {
 
           </>
         )}
-
         {/* Mobile Bottom Navigation - Visible on all tabs unless in active chat */}
         {!chatRoom && (
           <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-bgCard border-t border-borderBase flex items-center justify-around z-40 pb-safe-bottom">
-            <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${activeTab === 'dashboard' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
+            <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center justify-center w-14 h-full transition-colors ${activeTab === 'dashboard' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
               <Activity size={20} />
               <span className="text-[9px] font-mono mt-1 font-bold tracking-widest uppercase">Dash</span>
             </button>
-            <button onClick={() => setActiveTab('assets')} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${activeTab === 'assets' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
+            <button onClick={() => setActiveTab('assets')} className={`flex flex-col items-center justify-center w-14 h-full transition-colors ${activeTab === 'assets' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
               <FolderLock size={20} />
               <span className="text-[9px] font-mono mt-1 font-bold tracking-widest uppercase">Assets</span>
             </button>
-            <button onClick={() => setActiveTab('nodes')} className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${activeTab === 'nodes' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
+            <button onClick={() => setActiveTab('nodes')} className={`flex flex-col items-center justify-center w-14 h-full transition-colors ${activeTab === 'nodes' ? 'text-accent' : 'text-textSecondary hover:text-textPrimary'}`}>
               <MessageSquare size={20} />
               <span className="text-[9px] font-mono mt-1 font-bold tracking-widest uppercase">Tunnels</span>
             </button>
-            <button onClick={() => setSidebarOpen(true)} className="flex flex-col items-center justify-center w-16 h-full text-textSecondary hover:text-textPrimary transition-colors">
+            <button onClick={() => setActiveTab('bugs')} className={`relative flex flex-col items-center justify-center w-14 h-full transition-colors ${activeTab === 'bugs' ? 'text-purple-400' : 'text-textSecondary hover:text-textPrimary'}`}>
+              <Bug size={20} />
+              <span className="text-[9px] font-mono mt-1 font-bold tracking-widest uppercase">Bugs</span>
+              {bugReports.length > 0 && <span className="absolute top-1 right-2 w-4 h-4 text-[8px] flex items-center justify-center bg-purple-500 text-white rounded-full font-bold">{bugReports.length > 9 ? '9+' : bugReports.length}</span>}
+            </button>
+            <button onClick={() => setSidebarOpen(true)} className="flex flex-col items-center justify-center w-14 h-full text-textSecondary hover:text-textPrimary transition-colors">
               <Menu size={20} />
               <span className="text-[9px] font-mono mt-1 font-bold tracking-widest uppercase">More</span>
             </button>
           </nav>
         )}
+
+        {/* Bug Report FAB (Admin) */}
+        <button
+          className="fixed bottom-20 md:bottom-6 right-5 w-11 h-11 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-600 flex items-center justify-center transition-all shadow-lg hover:shadow-purple-500/30 z-40"
+          onClick={() => setShowBugModal(true)}
+          title="Report a Bug"
+        >
+          <Bug size={16} />
+        </button>
       </main>
 
       {/* Modals */}
@@ -1251,6 +1709,16 @@ export default function DashboardPage() {
         )}
         {qrRoom && (
           <QRModal room={qrRoom} onClose={() => setQrRoom(null)} onRevoke={() => { handleRevoke(qrRoom.token); setQrRoom(null); }} />
+        )}
+        {editRoom && (
+          <EditRoomModal
+            room={editRoom}
+            onClose={() => setEditRoom(null)}
+            onUpdated={(updated: any) => { handleRoomUpdate(updated); setEditRoom(null); }}
+          />
+        )}
+        {showBugModal && (
+          <AdminBugModal onClose={() => setShowBugModal(false)} />
         )}
       </AnimatePresence>
 

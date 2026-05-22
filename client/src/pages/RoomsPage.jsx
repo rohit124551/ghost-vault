@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { copyToClipboard } from '../utils/clipboard';
 import { useSocket } from '../contexts/SocketContext';
 import {
   Plus, Link2, Copy, Trash2, QrCode, X,

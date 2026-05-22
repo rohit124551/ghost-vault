@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import FullScreenImageViewer from './FullScreenImageViewer';
+import { copyToClipboard } from '../utils/clipboard';
 import './ChatWindow.css';
 
 /* ── Helpers ── */
@@ -37,10 +39,9 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
 
   const handleCopy = () => {
     const contentToCopy = (msg.type === 'image' || msg.type === 'file') ? msg.file_url : msg.content;
-    navigator.clipboard.writeText(contentToCopy);
+    copyToClipboard(contentToCopy, 'Message copied');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast.success('Link copied to clipboard', { id: 'copy-toast' });
   };
 
   // Force download even for cross-origin (Cloudinary) URLs
@@ -109,7 +110,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
             <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy Link">
               {copied ? <Check size={10} /> : <Copy size={10} />}
             </button>
-            {canDelete && isMe && (
+            {canDelete && myRole === 'owner' && (
               <button 
                 className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`} 
                 onClick={handleDelete} 
@@ -141,19 +142,11 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
               <Download size={14} />
             </a>
             {imgExpanded && (
-              <div className="lightbox" onClick={() => setImgExpanded(false)}>
-                <div className="lightbox-content" onClick={e => e.stopPropagation()}>
-                  <img src={msg.file_url} alt={msg.file_name} className="lightbox-img" />
-                  <div className="lightbox-actions">
-                    <a href={msg.file_url} download={msg.file_name} className="lightbox-action-btn" title="Download">
-                      <Download size={20} /> <span>Download</span>
-                    </a>
-                    <button className="lightbox-action-btn lightbox-action-btn--close" onClick={() => setImgExpanded(false)}>
-                      <X size={20} /> <span>Close</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <FullScreenImageViewer
+                imageUrl={msg.file_url}
+                imageName={msg.file_name}
+                onClose={() => setImgExpanded(false)}
+              />
             )}
           </div>
         )}

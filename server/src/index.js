@@ -8,6 +8,7 @@ const uploadRouter   = require('./routes/upload');
 const uploadsRouter  = require('./routes/uploads');
 const roomsRouter    = require('./routes/rooms');
 const messagesRouter = require('./routes/messages');
+const bugsRouter     = require('./routes/bugs');
 const { initSocket } = require('./socket');
 
 const app    = express();
@@ -46,6 +47,7 @@ app.use('/api/upload',                uploadRouter);
 app.use('/api/uploads',               uploadsRouter);
 app.use('/api/rooms',                 roomsRouter);
 app.use('/api/rooms/:token/messages', messagesRouter); // Fix 2/3
+app.use('/api/bugs',                  bugsRouter);
 
 // ── Error handler ──────────────────────────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars

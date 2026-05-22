@@ -48,17 +48,32 @@ router.get('/:token/valid', async (req, res, next) => {
 // POST /api/rooms — create a new room with unique token (owner only)
 router.post('/', requireOwner, async (req, res, next) => {
   try {
-    const { expiresInMinutes, viewOnce = false, note } = req.body;
+    const { expiresInMinutes, viewOnce = false, note, customToken } = req.body;
 
-    // Generate unique token (check DB)
     let token;
-    let attempts = 0;
-    do {
-      token = generateToken(4);
-      const { data } = await supabase.from('rooms').select('id').eq('token', token).single();
-      if (!data) break; // token is unique
-      attempts++;
-    } while (attempts < 10);
+
+    if (customToken) {
+      // Validate and sanitize custom token
+      const sanitized = customToken.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-').slice(0, 64);
+      if (sanitized.length < 2) {
+        return res.status(400).json({ error: 'Custom token must be at least 2 characters.' });
+      }
+      // Check uniqueness
+      const { data: existing } = await supabase.from('rooms').select('id').eq('token', sanitized).single();
+      if (existing) {
+        return res.status(409).json({ error: 'That custom token is already taken. Please choose another.' });
+      }
+      token = sanitized;
+    } else {
+      // Generate unique token (check DB)
+      let attempts = 0;
+      do {
+        token = generateToken(4);
+        const { data } = await supabase.from('rooms').select('id').eq('token', token).single();
+        if (!data) break; // token is unique
+        attempts++;
+      } while (attempts < 10);
+    }
 
     const expiresAt = expiresInMinutes
       ? new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString()
@@ -130,6 +145,69 @@ router.delete('/:token', requireOwner, async (req, res, next) => {
     next(err);
   }
 });
+
+// PATCH /api/rooms/:token — edit room settings post-creation (owner only)
+// Supports: extending TTL (addMinutes | newExpiresAt), changing note, reactivating
+router.patch('/:token', requireOwner, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { note, addMinutes, newExpiresAt, isActive, clearExpiry } = req.body;
+
+    const { data: room, error: fetchErr } = await supabase
+      .from('rooms')
+      .select('id, expires_at, is_active, note')
+      .eq('token', token)
+      .single();
+
+    if (fetchErr || !room) return res.status(404).json({ error: 'Room not found' });
+
+    const updates = {};
+
+    // Handle note update
+    if (note !== undefined) updates.note = note || null;
+
+    // Handle active toggle (reactivation)
+    if (isActive !== undefined) updates.is_active = Boolean(isActive);
+
+    // Handle expiry extension: add minutes to CURRENT expiry (or from now)
+    if (addMinutes && !isNaN(Number(addMinutes))) {
+      const base = room.expires_at ? new Date(room.expires_at) : new Date();
+      updates.expires_at = new Date(base.getTime() + Number(addMinutes) * 60 * 1000).toISOString();
+    } else if (clearExpiry) {
+      // Make it never expire
+      updates.expires_at = null;
+    } else if (newExpiresAt) {
+      updates.expires_at = new Date(newExpiresAt).toISOString();
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update.' });
+    }
+
+    const { data, error } = await supabase
+      .from('rooms')
+      .update(updates)
+      .eq('token', token)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Broadcast to connected guests so their timers and status update live
+    const io = req.app.get('io');
+    io.to(`room:${token}`).emit('room_updated', {
+      token,
+      expiresAt: data.expires_at,
+      note: data.note,
+      isActive: data.is_active,
+    });
+
+    res.json({ success: true, room: data });
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // DELETE /api/rooms/:token/permanent — hard delete room + all files + all messages
 router.delete('/:token/permanent', requireOwner, async (req, res, next) => {

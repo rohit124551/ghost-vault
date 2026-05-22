@@ -146,11 +146,17 @@ router.post('/file', (req, res, next) => {
 // DELETE /api/rooms/:token/messages/:id — owner deletes a message
 router.delete('/:id', requireOwner, async (req, res, next) => {
   try {
+    const { token, id } = req.params;
     const { error } = await supabase
       .from('messages')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', id);
     if (error) throw error;
+
+    // Emit socket event to notify guests and owner in real-time
+    const io = req.app.get('io');
+    io.to(`room:${token}`).emit('message_deleted', { id, roomToken: token });
+
     res.json({ success: true });
   } catch (err) {
     next(err);
