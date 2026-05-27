@@ -308,6 +308,7 @@ export default function ChatWindow({
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [voiceNotePreview, setVoiceNotePreview] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
@@ -368,13 +369,11 @@ export default function ChatWindow({
             return;
           }
 
-          setSending(true);
-          await onSendFile(audioFile);
-          setSending(false);
+          const url = URL.createObjectURL(audioFile);
+          setVoiceNotePreview({ file: audioFile, url });
         } catch (err) {
           console.error("Voice note error:", err);
-          toast.error("Failed to send voice note.");
-          setSending(false);
+          toast.error("Failed to process voice note.");
         }
       };
 
@@ -417,7 +416,18 @@ export default function ChatWindow({
   };
 
   const handleSend = async () => {
-    if (!text.trim() || sending || disabled) return;
+    if (sending || disabled) return;
+    
+    if (voiceNotePreview) {
+      setSending(true);
+      await onSendFile(voiceNotePreview.file);
+      URL.revokeObjectURL(voiceNotePreview.url);
+      setVoiceNotePreview(null);
+      setSending(false);
+      return;
+    }
+    
+    if (!text.trim()) return;
     setSending(true);
     await onSendText(text.trim());
     setText('');
@@ -658,8 +668,8 @@ export default function ChatWindow({
               onKeyDown={handleKey}
               onPaste={handlePaste}
               rows={1}
-              disabled={sending || isRecording}
-              style={{ display: isRecording ? 'none' : 'block' }}
+              disabled={sending || isRecording || voiceNotePreview}
+              style={{ display: (isRecording || voiceNotePreview) ? 'none' : 'block' }}
             />
             {isRecording && (
               <div className="chat-recording-indicator">
@@ -668,8 +678,19 @@ export default function ChatWindow({
                 <button className="chat-cancel-record" onClick={cancelRecording}>Cancel</button>
               </div>
             )}
+            {voiceNotePreview && (
+              <div className="chat-recording-indicator" style={{ gap: '8px' }}>
+                <audio src={voiceNotePreview.url} controls className="bubble-audio" style={{ height: '32px', flex: 1, minWidth: 0 }} />
+                <button className="chat-cancel-record" style={{ color: 'var(--danger)' }} onClick={() => {
+                  URL.revokeObjectURL(voiceNotePreview.url);
+                  setVoiceNotePreview(null);
+                }}>
+                  <X size={16} />
+                </button>
+              </div>
+            )}
             
-            {text.trim() || filePreviews.length > 0 ? (
+            {text.trim() || filePreviews.length > 0 || voiceNotePreview ? (
               <button
                 className="chat-send chat-send--active"
                 onClick={handleSend}
