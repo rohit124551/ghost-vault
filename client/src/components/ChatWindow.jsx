@@ -112,6 +112,7 @@ function formatDateSeparator(ts) {
 function getFileTypeFromName(fileName) {
   if (!fileName) return 'unknown';
   const ext = fileName.split('.').pop().toLowerCase();
+  if (fileName.startsWith('voice_note_')) return 'audio';
   if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) return 'video';
   if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
   if (ext === 'pdf') return 'pdf';
@@ -278,7 +279,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
         )}
         
         {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'audio' && (
-          <div className="bubble-media-wrapper">
+          <div className="bubble-media-wrapper bubble-media-wrapper--audio">
             <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
           </div>
         )}
