@@ -942,10 +942,9 @@ export default function DashboardPage() {
     const fullFileName = `${name}.${ext}`;
 
     try {
-      if (isFileSystemAccessSupported()) {
-        const dirHandle = await getDownloadDirectory();
-        if (dirHandle && await verifyPermission(dirHandle, true)) {
-           await saveFileToDirectory(dirHandle, fullFileName, file);
+      if (isFileSystemAccessSupported() && downloadDir) {
+        if (await verifyPermission(downloadDir, true)) {
+           await saveFileToDirectory(downloadDir, fullFileName, file);
            toast.success('Written to local vault', { style: { background: '#020617', color: '#10b981', border: '1px solid #10b981' } });
            setPendingFile(null);
            return;
