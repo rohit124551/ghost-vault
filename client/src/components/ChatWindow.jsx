@@ -355,20 +355,38 @@ export default function ChatWindow({
         }
       };
 
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.webm`, { type: 'audio/webm' });
-        setFilePreviews(prev => [...prev, { file: audioFile, name: 'Voice Note 🎤' }]);
-        stream.getTracks().forEach(track => track.stop());
+      mediaRecorder.onstop = async () => {
+        try {
+          // Use Blob and attach a name property to avoid 'new File' constructor crashes on older/mobile browsers
+          const audioFile = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          audioFile.name = `voice_note_${Date.now()}.webm`;
+          
+          stream.getTracks().forEach(track => track.stop());
+
+          if (audioFile.size === 0) {
+            toast.error("Recording failed (empty audio).");
+            return;
+          }
+
+          setSending(true);
+          await onSendFile(audioFile);
+          setSending(false);
+        } catch (err) {
+          console.error("Voice note error:", err);
+          toast.error("Failed to send voice note.");
+          setSending(false);
+        }
       };
 
-      mediaRecorder.start();
+      // Pass a timeslice of 200ms to ensure ondataavailable fires reliably across all browsers
+      mediaRecorder.start(200);
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (err) {
+      console.error(err);
       toast.error('Microphone access denied or unavailable');
     }
   };
