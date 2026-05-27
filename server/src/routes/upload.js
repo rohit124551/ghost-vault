@@ -33,9 +33,14 @@ router.post('/', (req, res, next) => {
       // Parse expires_at if provided (owner can set expiry)
       let expiresAt = null;
       if (req.body.expiresIn) {
-        const minutes = parseInt(req.body.expiresIn, 10);
-        if (!isNaN(minutes) && minutes > 0) {
-          expiresAt = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+        if (req.body.expiresIn === 'burn') {
+          // Special flag for burn after reading
+          expiresAt = new Date('1970-01-01T00:00:01Z').toISOString();
+        } else {
+          const minutes = parseInt(req.body.expiresIn, 10);
+          if (!isNaN(minutes) && minutes > 0) {
+            expiresAt = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+          }
         }
       }
 

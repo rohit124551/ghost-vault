@@ -11,15 +11,18 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 ## ✨ Key Features
 
 - **🚀 Instant Paste Sharing**: Press `Ctrl+V` anywhere on the dashboard to immediately upload a screenshot. The URL is automatically copied to your clipboard.
+- **📂 Native File System Access**: Bypass the browser's "Save As" dialogue completely. GhostVault can save pasted images directly to a chosen folder on your hard drive using the Native File System Access API.
+- **🔥 Burn After Reading**: Share ultra-sensitive credentials or images using Burn-After-Reading links. The server instantly purges the file from the cloud and database the moment the recipient views it.
+- **🗂️ In-Browser Folder Zipping**: Drag and drop an entire folder onto the dashboard. GhostVault will recursively zip the folder locally in your browser and upload it securely as a single `.zip` asset.
+- **📝 Syntax Highlighted Code Sharing**: Paste raw JSON, Python, JS, or text directly. GhostVault detects code and shares it using a built-in pastebin viewer with beautiful syntax highlighting.
 - **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
 - **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
 - **🗑️ 2-Step Secure Deletion**: Prevent accidental data loss with safety-first deletion workflows and pulsing visual confirmations.
 - **📱 Responsive Sidebar**: Intelligent navigation with auto-collapse on chat, click-outside-to-close behavior, and persistent toggles for maximum workspace focus.
-- **📂 Universal File Support**: Share images, docs, and raw payloads with intelligent `auto-detect` Cloudinary storage and one-click link copying.
 - **👁️ View-Once Mode**: Specialized tunnels that automatically revoke themselves the moment the first file is received.
 - **🚨 Panic Mode**: Press `Esc` twice quickly to hide your vault instantly. Restore with a hidden trigger.
-
+- **🔍 SEO Optimized**: Server-side robots.txt, sitemap.xml, and dynamic meta tags ensure public landing pages are perfectly indexed while vaults remain hidden.
 
 ---
 

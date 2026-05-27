@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import JSZip from 'jszip';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -89,6 +90,7 @@ function NameDialog({ file, defaultName, onSaveLocal, onUpload, onCancel }: any)
           <option value="1440">24 Hours</option>
           <option value="10080">7 Days</option>
           <option value="43200">30 Days</option>
+          <option value="burn">Burn After Reading 🔥</option>
         </select>
 
         <div className="flex gap-3">
@@ -543,9 +545,16 @@ function QRModal({ room, onClose, onRevoke }: any) {
 function UploadRow({ upload, onDelete }: any) {
   const [copied, setCopied] = useState(false);
   const isImg = upload.file_type?.startsWith('image/');
-  const isExp = upload.expires_at && new Date(upload.expires_at) < new Date();
+  const isBurn = upload.expires_at === '1970-01-01T00:00:01+00:00' || upload.expires_at === '1970-01-01T00:00:01.000Z';
+  const isExp = !isBurn && upload.expires_at && new Date(upload.expires_at) < new Date();
+  
   const copy = () => { 
-    copyToClipboard(upload.cloudinary_url, 'URL copied'); 
+    const isText = upload.file_type === 'text/plain' || upload.file_type === 'application/json';
+    let shareUrl = upload.cloudinary_url;
+    if (isBurn) shareUrl = `${BASE_URL}/burn/${upload.id}`;
+    else if (isText) shareUrl = `${BASE_URL}/v/${upload.id}`;
+    
+    copyToClipboard(shareUrl, 'URL copied'); 
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -570,9 +579,14 @@ function UploadRow({ upload, onDelete }: any) {
         <div className="font-mono text-sm font-medium text-textPrimary truncate mb-1" title={upload.file_name}>{upload.file_name}</div>
         <div className="flex items-center gap-3 text-[10px] font-mono text-textGhost uppercase">
           <span>{new Date(upload.created_at).toISOString().split('T')[0]}</span>
-          {upload.expires_at && !isExp && (
+          {upload.expires_at && !isExp && !isBurn && (
             <span className="flex items-center gap-1 text-amber-500 bg-amber-500/10 px-1.5 rounded-sm">
               <Timer size={10} /> {timeLeft(upload.expires_at)}
+            </span>
+          )}
+          {isBurn && (
+            <span className="flex items-center gap-1 text-orange-500 bg-orange-500/10 px-1.5 rounded-sm">
+              🔥 BURN ON READ
             </span>
           )}
           {isExp && <span className="text-danger bg-danger/10 px-1.5 rounded-sm">DEAD</span>}
@@ -913,13 +927,25 @@ export default function DashboardPage() {
       if (chatRoom) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+      let file: File | null = null;
+      let defaultName = `dump_${new Date().getTime().toString(16).toUpperCase()}`;
+
       const img = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
-      if (!img) return;
-      const file = img.getAsFile();
+      if (img) {
+        file = img.getAsFile();
+      } else {
+        const text = e.clipboardData?.getData('text/plain');
+        if (text && text.trim()) {
+          const isJson = text.trim().startsWith('{') || text.trim().startsWith('[');
+          const ext = isJson ? 'json' : 'txt';
+          file = new File([text], `snippet_${new Date().getTime()}.${ext}`, { type: isJson ? 'application/json' : 'text/plain' });
+          defaultName = `snippet_${new Date().getTime().toString(16)}`;
+        }
+      }
+
       if (!file) return;
       setPasteFlash(true);
       setTimeout(() => setPasteFlash(false), 350);
-      const defaultName = `dump_${new Date().getTime().toString(16).toUpperCase()}`;
       setPendingFile({ file, defaultName });
     };
     window.addEventListener('paste', handle);
@@ -927,10 +953,35 @@ export default function DashboardPage() {
   }, [chatRoom]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    multiple: false,
-    maxSize: 20 * 1024 * 1024,
-    onDropAccepted: ([file]) => setPendingFile({ file, defaultName: file.name.replace(/\.[^/.]+$/, '') }),
-    onDropRejected: () => toast.error('ERR: Max 20MB allowed'),
+    multiple: true,
+    maxSize: 50 * 1024 * 1024, // Allow up to 50MB for folders
+    onDropAccepted: async (files) => {
+      if (files.length === 1) {
+        setPendingFile({ file: files[0], defaultName: files[0].name.replace(/\.[^/.]+$/, '') });
+      } else if (files.length > 1) {
+        // Zip multiple files / folder
+        setUploading(true);
+        toast('Zipping folder...', { icon: '🗂️' });
+        try {
+          const zip = new JSZip();
+          files.forEach(f => {
+            // @ts-ignore - path is added by react-dropzone
+            const filePath = f.path || f.webkitRelativePath || f.name;
+            // clean up leading slash if present
+            const cleanPath = filePath.replace(/^\//, '');
+            zip.file(cleanPath, f);
+          });
+          const content = await zip.generateAsync({ type: 'blob' });
+          const zipFile = new File([content], 'archive.zip', { type: 'application/zip' });
+          setPendingFile({ file: zipFile, defaultName: `archive_${new Date().getTime().toString(16)}` });
+        } catch (err) {
+          toast.error('Failed to zip folder');
+        } finally {
+          setUploading(false);
+        }
+      }
+    },
+    onDropRejected: () => toast.error('ERR: Drop rejected (Max 50MB)'),
   });
 
   const handleSaveLocal = async (name: string) => {

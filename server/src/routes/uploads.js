@@ -63,4 +63,34 @@ router.delete('/:id', requireOwner, async (req, res, next) => {
   }
 });
 
+// GET /api/uploads/:id/public — get public details of an upload (for viewing assets)
+router.get('/:id/public', async (req, res, next) => {
+  try {
+    const { data: upload, error } = await supabase
+      .from('uploads')
+      .select('id, file_name, file_type, cloudinary_url, expires_at')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !upload) return res.status(404).json({ error: 'Asset not found' });
+
+    // Check expiration
+    if (upload.expires_at) {
+      // Don't serve burn after reading links from this route
+      if (upload.expires_at === '1970-01-01T00:00:01+00:00' || upload.expires_at === '1970-01-01T00:00:01.000Z') {
+        return res.status(403).json({ error: 'This is a burn-after-reading asset. Use the correct viewing mechanism.' });
+      }
+      
+      const now = new Date();
+      if (new Date(upload.expires_at) < now) {
+        return res.status(410).json({ error: 'Asset has expired' });
+      }
+    }
+
+    res.json(upload);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

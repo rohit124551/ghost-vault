@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const uploadRouter   = require('./routes/upload');
 const uploadsRouter  = require('./routes/uploads');
 const roomsRouter    = require('./routes/rooms');
+const burnRouter     = require('./routes/burn');
 const messagesRouter = require('./routes/messages');
 const bugsRouter     = require('./routes/bugs');
 const { initSocket } = require('./socket');
@@ -45,6 +46,7 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() })
 // ── Routes ─────────────────────────────────────────────────────────────────────
 app.use('/api/upload',                uploadRouter);
 app.use('/api/uploads',               uploadsRouter);
+app.use('/api/burn',                  burnRouter);
 app.use('/api/rooms',                 roomsRouter);
 app.use('/api/rooms/:token/messages', messagesRouter); // Fix 2/3
 app.use('/api/bugs',                  bugsRouter);
