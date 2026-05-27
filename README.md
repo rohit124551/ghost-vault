@@ -18,6 +18,10 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
 - **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
+  - **In-Line Media Players**: Video and audio clips (`.mp4`, `.webm`, `.mp3`) are instantly playable inside chat bubbles.
+  - **PDF Previews**: First-page thumbnails for uploaded PDFs generated dynamically via Cloudinary.
+  - **Voice Notes**: Quick-record microphone button for instant, Telegram-style audio voice notes.
+  - **Emoji Reactions**: React to messages instantly. Admins have superpower capabilities to override and remove any reactions.
 - **🗑️ 2-Step Secure Deletion**: Prevent accidental data loss with safety-first deletion workflows and pulsing visual confirmations.
 - **📱 Responsive Sidebar**: Intelligent navigation with auto-collapse on chat, click-outside-to-close behavior, and persistent toggles for maximum workspace focus.
 - **👁️ View-Once Mode**: Specialized tunnels that automatically revoke themselves the moment the first file is received.
