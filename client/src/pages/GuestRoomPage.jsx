@@ -332,16 +332,6 @@ export default function GuestRoomPage() {
         </div>
       </div>
 
-      {/* ── Floating Bug Report Button ── */}
-      <button
-        className="hidden md:flex fixed bottom-6 right-6 w-[48px] h-[48px] rounded-full bg-gradient-to-br from-purple-600 to-pink-500 border border-white/15 text-white items-center justify-center cursor-pointer z-[8000] shadow-[0_8px_24px_rgba(124,58,237,0.5),0_0_0_4px_rgba(124,58,237,0.15)] hover:scale-110 hover:-translate-y-1 transition-all"
-        onClick={() => setShowBugModal(true)}
-        title="Report a bug"
-        aria-label="Report a Bug"
-      >
-        <Bug size={20} />
-      </button>
-
       {/* ── Bug Report Modal ── */}
       {showBugModal && (
         <BugReportModal token={token} onClose={() => setShowBugModal(false)} />

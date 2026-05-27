@@ -1810,7 +1810,7 @@ export default function DashboardPage() {
 
         {/* Bug Report FAB (Admin) */}
         <button
-          className={`${chatRoom ? 'hidden md:flex' : 'flex'} fixed bottom-20 md:bottom-6 right-5 w-11 h-11 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-600 items-center justify-center transition-all shadow-lg hover:shadow-purple-500/30 z-40`}
+          className={`${chatRoom ? 'hidden' : 'flex'} fixed bottom-20 md:bottom-6 right-5 w-11 h-11 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-600 items-center justify-center transition-all shadow-lg hover:shadow-purple-500/30 z-40`}
           onClick={() => setShowBugModal(true)}
           title="Report a Bug"
         >
