@@ -212,6 +212,10 @@ export default function GuestRoomPage() {
       setMessages(prev => prev.filter(m => m.id !== id));
     });
 
+    s.on('message_reacted', ({ messageId, reactions }) => {
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions } : m));
+    });
+
     s.on('room_updated', ({ expiresAt: newExpiry, note: newNote, isActive }) => {
       if (newExpiry !== undefined) setExpiresAt(newExpiry);
       if (newNote !== undefined) setNote(newNote);
@@ -252,6 +256,18 @@ export default function GuestRoomPage() {
       setMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
+      });
+    } catch { /* silently fail */ }
+  };
+
+  const handleReact = async (msgId, emoji, forceRemove) => {
+    if (status !== 'valid') return;
+    const guestId = localStorage.getItem('ghostvault_guest_id') || 'guest';
+    try {
+      await axios.post(`${API_URL}/api/rooms/${token}/messages/${msgId}/react`, {
+        emoji,
+        userId: guestId,
+        forceRemove
       });
     } catch { /* silently fail */ }
   };
@@ -311,6 +327,7 @@ export default function GuestRoomPage() {
             messages={messages}
             onSendText={handleSendText}
             onSendFile={handleSendFile}
+            onReact={handleReact}
             onDelete={null}
             canDelete={false}
             loading={chatLoad}

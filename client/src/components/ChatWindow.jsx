@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -110,11 +110,19 @@ function formatDateSeparator(ts) {
 }
 
 /* ── Message Bubble ── */
-function MessageBubble({ msg, myRole, onDelete, canDelete }) {
+function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
   const [imgExpanded, setImgExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const isMe = msg.sender === myRole;
+
+  const handleReactClick = (emoji, forceRemove = false) => {
+    setShowEmojiPicker(false);
+    onReact(msg.id, emoji, forceRemove);
+  };
+  
+  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 
   const handleCopy = () => {
@@ -190,6 +198,22 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
             <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy Link">
               {copied ? <Check size={10} /> : <Copy size={10} />}
             </button>
+            <div className="relative">
+              <button 
+                className="bubble-action bubble-action--react" 
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                title="React"
+              >
+                <SmilePlus size={10} />
+              </button>
+              {showEmojiPicker && (
+                <div className="chat-mini-emoji-picker">
+                  {QUICK_EMOJIS.map(e => (
+                    <button key={e} onClick={() => handleReactClick(e)}>{e}</button>
+                  ))}
+                </div>
+              )}
+            </div>
             {canDelete && myRole === 'owner' && (
               <button 
                 className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`} 
@@ -276,6 +300,38 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
         )}
 
         <span className="bubble-time-float">{formatTime(msg.created_at)}</span>
+        
+        {/* ── Reactions ── */}
+        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+          <div className="bubble-reactions">
+            {Object.entries(msg.reactions).map(([emoji, users]) => {
+              const myId = myRole === 'owner' ? 'owner' : guestId;
+              const iReacted = users.includes(myId);
+              return (
+                <div 
+                  key={emoji} 
+                  className={`bubble-reaction-badge ${iReacted ? 'bubble-reaction-badge--active' : ''}`}
+                  onClick={() => handleReactClick(emoji)}
+                >
+                  <span className="emoji">{emoji}</span>
+                  <span className="count">{users.length}</span>
+                  {myRole === 'owner' && (
+                    <button 
+                      className="reaction-force-remove"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReactClick(emoji, true);
+                      }}
+                      title="Force Remove"
+                    >
+                      <X size={8} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -295,7 +351,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
    ══════════════════════════════════════════════ */
 export default function ChatWindow({
   messages, onSendText, onSendFile,
-  onDelete, canDelete, loading,
+  onDelete, canDelete, onReact, loading,
   myRole = 'owner', disabled = false
 }) {
   const [text, setText]       = useState('');
@@ -309,6 +365,15 @@ export default function ChatWindow({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [voiceNotePreview, setVoiceNotePreview] = useState(null);
+  
+  const [guestId] = useState(() => {
+    let id = localStorage.getItem('ghostvault_guest_id');
+    if (!id) {
+      id = 'guest_' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('ghostvault_guest_id', id);
+    }
+    return id;
+  });
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
@@ -602,6 +667,8 @@ export default function ChatWindow({
                   myRole={myRole}
                   onDelete={onDelete}
                   canDelete={canDelete}
+                  onReact={onReact}
+                  guestId={guestId}
                 />
               </div>
             );

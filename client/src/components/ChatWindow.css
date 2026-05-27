@@ -839,3 +839,105 @@
   color: #fff !important;
   animation: pulse-danger 1s infinite;
 }
+
+/* ── Emoji Reactions ── */
+
+.bubble-action--react {
+  position: relative;
+}
+
+.chat-mini-emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  gap: 4px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  animation: slide-up-fade 0.15s ease-out;
+}
+
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-mini-emoji-picker button {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.chat-mini-emoji-picker button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.bubble-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.bubble-reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+  position: relative;
+}
+
+.bubble-reaction-badge:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bubble-reaction-badge--active {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.bubble-reaction-badge .count {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.reaction-force-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-ghost);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin-left: 2px;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.bubble-reaction-badge:hover .reaction-force-remove {
+  opacity: 1;
+}
+
+.reaction-force-remove:hover {
+  color: var(--danger);
+  background: var(--danger-transparent);
+}

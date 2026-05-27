@@ -851,6 +851,11 @@ export default function DashboardPage() {
         setChatMessages(prev => prev.filter(m => m.id !== id));
       }
     };
+    const onMessageReacted = ({ messageId, reactions, roomToken }: any) => {
+      if (chatRoom && roomToken === chatRoom.token) {
+        setChatMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions } : m));
+      }
+    };
     const onRoomUpdated = ({ token, expiresAt, note: newNote, isActive }: any) => {
       setRooms(prev => prev.map(r => r.token === token
         ? { ...r, expires_at: expiresAt, note: newNote, is_active: isActive ?? r.is_active }
@@ -865,12 +870,14 @@ export default function DashboardPage() {
     socket.on('new_message', onMessage);
     socket.on('room_revoked', onRevoked);
     socket.on('message_deleted', onMessageDeleted);
+    socket.on('message_reacted', onMessageReacted);
     socket.on('room_updated', onRoomUpdated);
     return () => {
       socket.off('new_file', onFile);
       socket.off('new_message', onMessage);
       socket.off('room_revoked', onRevoked);
       socket.off('message_deleted', onMessageDeleted);
+      socket.off('message_reacted', onMessageReacted);
       socket.off('room_updated', onRoomUpdated);
     };
   }, [socket, rooms, chatRoom, joinRoom]);
@@ -1101,12 +1108,27 @@ export default function DashboardPage() {
   };
 
   const handleDeleteMessage = async (id: string) => {
-    try { 
-      await api.delete(`/api/rooms/${chatRoom.token}/messages/${id}`); 
-      setChatMessages(prev => prev.filter(m => m.id !== id)); 
+    if (!chatRoom) return;
+    try {
+      await api.delete(`/api/rooms/${chatRoom.token}/messages/${id}`);
+      setChatMessages(prev => prev.filter(m => m.id !== id));
       toast.success('Message deleted');
+    } catch {
+      toast.error('Failed to delete message');
     }
-    catch { toast.error('Failed to delete message'); }
+  };
+
+  const handleReact = async (msgId: string, emoji: string, forceRemove: boolean) => {
+    if (!chatRoom) return;
+    try {
+      await api.post(`/api/rooms/${chatRoom.token}/messages/${msgId}/react`, {
+        emoji,
+        userId: 'owner',
+        forceRemove
+      });
+    } catch {
+      toast.error('Failed to react');
+    }
   };
 
   const handleRoomUpdate = (updatedRoom: any) => {
@@ -1432,6 +1454,7 @@ export default function DashboardPage() {
                       onSendText={handleOwnerSendText}
                       onSendFile={handleOwnerSendFile}
                       onDelete={handleDeleteMessage}
+                      onReact={handleReact}
                       canDelete={true}
                       loading={chatLoading}
                       myRole="owner"
