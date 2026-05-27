@@ -29,6 +29,18 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatDateSeparator(ts) {
+  const date = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 /* ── Message Bubble ── */
 function MessageBubble({ msg, myRole, onDelete, canDelete }) {
   const [imgExpanded, setImgExpanded] = useState(false);
@@ -375,15 +387,35 @@ export default function ChatWindow({
             <p style={{ fontSize:12, color:'var(--text-ghost)' }}>No messages yet</p>
           </div>
         ) : (
-          messages.map((msg, i) => (
-            <MessageBubble
-              key={msg.id || i}
-              msg={msg}
-              myRole={myRole}
-              onDelete={onDelete}
-              canDelete={canDelete}
-            />
-          ))
+          messages.map((msg, i) => {
+            const prevMsg = i > 0 ? messages[i - 1] : null;
+            let showDate = false;
+            if (!prevMsg) {
+              showDate = true;
+            } else {
+              const currentDate = new Date(msg.created_at).toDateString();
+              const prevDate = new Date(prevMsg.created_at).toDateString();
+              if (currentDate !== prevDate) {
+                showDate = true;
+              }
+            }
+
+            return (
+              <div key={msg.id || i} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                {showDate && (
+                  <div className="chat-date-separator">
+                    <span>{formatDateSeparator(msg.created_at)}</span>
+                  </div>
+                )}
+                <MessageBubble
+                  msg={msg}
+                  myRole={myRole}
+                  onDelete={onDelete}
+                  canDelete={canDelete}
+                />
+              </div>
+            );
+          })
         )}
         <div ref={scrollRef} />
       </div>

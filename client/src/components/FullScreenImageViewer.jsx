@@ -240,7 +240,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, onClose }) 
       <div className="fs-viewer-header" onClick={e => e.stopPropagation()}>
         <div className="fs-viewer-title-section">
           <span className="fs-viewer-filename">{imageName || 'Shared Image'}</span>
-          {scale > 1 && <span className="fs-viewer-badge">{scale.toFixed(1)}x Zoom</span>}
+          {scale > 1 && <span className="fs-viewer-badge">{scale.toFixed(1)}x</span>}
         </div>
         
         <div className="fs-viewer-toolbar">

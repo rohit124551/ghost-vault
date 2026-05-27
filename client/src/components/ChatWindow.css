@@ -60,7 +60,27 @@
   height: 100%;
 }
 
+/* ── Date Separator ── */
+.chat-date-separator {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  position: relative;
+  z-index: 10;
+}
 
+.chat-date-separator span {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 12px;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--border-active);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
 
 /* ── Bubble rows ── */
 .bubble-row {
