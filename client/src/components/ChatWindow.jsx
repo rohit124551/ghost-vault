@@ -109,6 +109,15 @@ function formatDateSeparator(ts) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function getFileTypeFromName(fileName) {
+  if (!fileName) return 'unknown';
+  const ext = fileName.split('.').pop().toLowerCase();
+  if (['mp4', 'webm', 'mov', 'mkv'].includes(ext)) return 'video';
+  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'audio';
+  if (ext === 'pdf') return 'pdf';
+  return 'generic';
+}
+
 /* ── Message Bubble ── */
 function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
   const [imgExpanded, setImgExpanded] = useState(false);
@@ -256,7 +265,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
         )}
 
         {/* ── Video / Audio / PDF ── */}
-        {msg.type === 'file' && msg.mime_type?.startsWith('video/') && (
+        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'video' && (
           <div className="bubble-media-wrapper">
             <video 
               src={msg.file_url} 
@@ -268,13 +277,13 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
           </div>
         )}
         
-        {msg.type === 'file' && msg.mime_type?.startsWith('audio/') && (
+        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'audio' && (
           <div className="bubble-media-wrapper">
             <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
           </div>
         )}
 
-        {msg.type === 'file' && msg.mime_type === 'application/pdf' && (
+        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'pdf' && (
           <div className="bubble-media-wrapper">
             <iframe src={`${msg.file_url}#toolbar=0`} className="bubble-pdf-preview" title="PDF Preview" />
             <a href={msg.file_url} target="_blank" rel="noreferrer" className="bubble-pdf-open" title="Open Full PDF">
@@ -284,7 +293,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
         )}
 
         {/* ── Generic File ── */}
-        {msg.type === 'file' && !msg.mime_type?.startsWith('video/') && !msg.mime_type?.startsWith('audio/') && msg.mime_type !== 'application/pdf' && (
+        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'generic' && (
           <div className="bubble-file">
             <File size={15} className="bubble-file-icon" />
             <div className="bubble-file-info">
