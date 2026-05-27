@@ -1116,6 +1116,18 @@ export default function DashboardPage() {
 
 
         <div className="p-4 border-t border-borderBase bg-bgBase/50">
+          {isFileSystemAccessSupported() && (
+            <div className="mb-4 flex flex-col gap-2">
+              <button onClick={handleSetDownloadDir} className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-mono font-bold rounded-sm border border-cyan-500/30 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10 transition-colors uppercase tracking-wider">
+                <FolderLock size={14} /> {downloadDir ? 'Vault: ' + downloadDir.name : 'Set Save Folder'}
+              </button>
+              {downloadDir && (
+                <button onClick={handleClearDownloadDir} className="text-[10px] text-textSecondary hover:text-danger font-mono transition-colors text-center uppercase">
+                  Clear Folder
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 rounded-sm bg-bgCard flex items-center justify-center border border-borderActive text-cyan-400 font-mono text-sm font-bold shrink-0">
               {user?.email?.charAt(0).toUpperCase()}
