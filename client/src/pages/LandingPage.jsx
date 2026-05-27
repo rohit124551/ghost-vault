@@ -94,7 +94,7 @@ export default function LandingPage() {
             <span className="inline-block w-3 md:w-5 h-8 md:h-12 bg-accent ml-1 animate-pulse align-middle"></span>
           </h1>
           <p className="text-lg md:text-xl text-textSecondary font-mono max-w-2xl mx-auto mb-10">
-            A premium, ephemeral DevSecOps terminal designed for maximum speed, security, and anonymity. Secure chats, private vaults, and temporary tunnels.
+            Your personal screenshot vault and temporary file sharing terminal. Designed for maximum speed, security, and anonymity with secure chats and real-time tunnels.
           </p>
           <div className="flex items-center justify-center gap-4">
             {user ? (

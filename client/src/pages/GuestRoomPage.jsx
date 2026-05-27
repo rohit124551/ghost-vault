@@ -319,14 +319,22 @@ export default function GuestRoomPage() {
           />
         </div>
 
-        <div className="guest-footer">
-          <p>This session is temporary. Data will vanish when revoked.</p>
+        <div className="guest-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <p style={{ margin: 0 }}>This session is temporary. Data will vanish when revoked.</p>
+          <button
+            className="md:hidden flex items-center justify-center w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500 hover:text-white transition-colors"
+            onClick={() => setShowBugModal(true)}
+            title="Report a bug"
+            aria-label="Report a Bug"
+          >
+            <Bug size={12} />
+          </button>
         </div>
       </div>
 
       {/* ── Floating Bug Report Button ── */}
       <button
-        className="fixed bottom-6 right-6 w-[48px] h-[48px] rounded-full bg-gradient-to-br from-purple-600 to-pink-500 border border-white/15 text-white flex items-center justify-center cursor-pointer z-[8000] shadow-[0_8px_24px_rgba(124,58,237,0.5),0_0_0_4px_rgba(124,58,237,0.15)] hover:scale-110 hover:-translate-y-1 transition-all"
+        className="hidden md:flex fixed bottom-6 right-6 w-[48px] h-[48px] rounded-full bg-gradient-to-br from-purple-600 to-pink-500 border border-white/15 text-white items-center justify-center cursor-pointer z-[8000] shadow-[0_8px_24px_rgba(124,58,237,0.5),0_0_0_4px_rgba(124,58,237,0.15)] hover:scale-110 hover:-translate-y-1 transition-all"
         onClick={() => setShowBugModal(true)}
         title="Report a bug"
         aria-label="Report a Bug"

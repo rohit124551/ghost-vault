@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import GhostLogo from '../components/GhostLogo';
 import { copyToClipboard } from '../utils/clipboard';
+import { isFileSystemAccessSupported, selectDownloadDirectory, getDownloadDirectory, verifyPermission, saveFileToDirectory, clearDownloadDirectory } from '../utils/fsAccess';
 
 const BASE_URL = window.location.origin;
 
@@ -541,6 +542,7 @@ function QRModal({ room, onClose, onRevoke }: any) {
 
 function UploadRow({ upload, onDelete }: any) {
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const isImg = upload.file_type?.startsWith('image/');
   const isExp = upload.expires_at && new Date(upload.expires_at) < new Date();
   const copy = () => { 
@@ -548,7 +550,28 @@ function UploadRow({ upload, onDelete }: any) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-  const dl = () => { const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click(); };
+  const dl = async () => { 
+    try {
+      setDownloading(true);
+      const dirHandle = await getDownloadDirectory();
+      let savedDirectly = false;
+      if (dirHandle && await verifyPermission(dirHandle, true)) {
+        const res = await fetch(upload.cloudinary_url);
+        const blob = await res.blob();
+        await saveFileToDirectory(dirHandle, upload.file_name, blob);
+        savedDirectly = true;
+        toast.success(`Saved directly to local vault`, { style: { background: '#020617', color: '#10b981', border: '1px solid #10b981' } });
+      }
+      if (!savedDirectly) {
+        const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click(); 
+      }
+    } catch (err) {
+      console.error('Direct save failed', err);
+      const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click();
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -579,7 +602,9 @@ function UploadRow({ upload, onDelete }: any) {
       </div>
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={dl} title="Download"><Download size={14} /></button>
+        <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase disabled:opacity-50" onClick={dl} disabled={downloading} title="Download">
+          {downloading ? <span className="w-3 h-3 border-2 border-cyan-400/20 border-t-cyan-400 rounded-full animate-spin inline-block" /> : <Download size={14} />}
+        </button>
         <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={copy} title="Copy URL">
           {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
         </button>
@@ -747,6 +772,33 @@ export default function DashboardPage() {
   const [tunnelSearch, setTunnelSearch] = useState('');
   const [bugReports, setBugReports] = useState<any[]>([]);
   const [bugLoading, setBugLoading] = useState(false);
+  const [downloadDir, setDownloadDir] = useState<any>(null);
+
+  useEffect(() => {
+    if (isFileSystemAccessSupported()) {
+      getDownloadDirectory().then(dir => {
+        if (dir) setDownloadDir(dir);
+      });
+    }
+  }, []);
+
+  const handleSetDownloadDir = async () => {
+    try {
+      const dir = await selectDownloadDirectory();
+      if (dir) {
+        setDownloadDir(dir);
+        toast.success(`Vault folder set to: ${dir.name}`);
+      }
+    } catch (err) {
+      toast.error('Failed to set folder');
+    }
+  };
+
+  const handleClearDownloadDir = async () => {
+    await clearDownloadDirectory();
+    setDownloadDir(null);
+    toast.success('Cleared local vault folder');
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -1135,6 +1187,20 @@ export default function DashboardPage() {
               </div>
 
 
+              {isFileSystemAccessSupported() && (
+                <div className="mb-4 flex flex-col gap-2">
+                  <div className="text-[10px] font-mono text-textGhost uppercase tracking-widest text-center">Local Vault Directory</div>
+                  <button onClick={handleSetDownloadDir} className="flex items-center justify-center gap-2 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10 transition-colors text-sm font-bold w-full">
+                    <FolderLock size={16} /> {downloadDir ? `Vault: ${downloadDir.name}` : 'Set Save Folder'}
+                  </button>
+                  {downloadDir && (
+                    <button onClick={handleClearDownloadDir} className="text-xs text-textSecondary hover:text-danger font-mono transition-colors">
+                      Clear configured folder
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <button onClick={() => { toggleTheme(); setSidebarOpen(false); }} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-borderBase bg-bgBase text-textSecondary hover:text-textPrimary transition-colors text-sm font-bold">
                   {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />} Theme
@@ -1294,9 +1360,14 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-                    <button className="hidden md:flex p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover border border-transparent hover:border-borderBase rounded-md transition-colors" onClick={closeChat}>
-                      <X size={18} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button className="p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-md transition-colors" onClick={() => setShowBugModal(true)} title="Report a Bug">
+                        <Bug size={18} />
+                      </button>
+                      <button className="hidden md:flex p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover border border-transparent hover:border-borderBase rounded-md transition-colors" onClick={closeChat}>
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-hidden flex flex-col">
                     <ChatWindow
@@ -1682,7 +1753,7 @@ export default function DashboardPage() {
 
         {/* Bug Report FAB (Admin) */}
         <button
-          className="fixed bottom-20 md:bottom-6 right-5 w-11 h-11 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-600 flex items-center justify-center transition-all shadow-lg hover:shadow-purple-500/30 z-40"
+          className={`${chatRoom ? 'hidden md:flex' : 'flex'} fixed bottom-20 md:bottom-6 right-5 w-11 h-11 rounded-full bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600 hover:text-white hover:border-purple-600 items-center justify-center transition-all shadow-lg hover:shadow-purple-500/30 z-40`}
           onClick={() => setShowBugModal(true)}
           title="Report a Bug"
         >
