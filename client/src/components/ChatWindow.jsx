@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square } from 'lucide-react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import FullScreenImageViewer from './FullScreenImageViewer';
@@ -15,14 +17,80 @@ function getAvatarColor(seed) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-function linkify(text) {
+function renderMessageText(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  // Check for code blocks ```language ... ```
+  const codeBlockRegex = /```([\w-]*)\n([\s\S]*?)```/g;
+  
+  const elements = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Add preceding text (linkified)
+    if (match.index > lastIndex) {
+      const preceding = text.slice(lastIndex, match.index);
+      elements.push(
+        <span key={`text-${lastIndex}`}>{linkify(preceding, urlRegex)}</span>
+      );
+    }
+    
+    // Add code block
+    const language = match[1] || 'text';
+    const code = match[2];
+    elements.push(
+      <div key={`code-${match.index}`} className="bubble-code-wrapper">
+        <SyntaxHighlighter
+          language={language}
+          style={atomDark}
+          customStyle={{
+            margin: '4px 0',
+            padding: '12px',
+            borderRadius: '8px',
+            fontSize: '13px',
+            background: 'rgba(0,0,0,0.4)',
+          }}
+          wrapLines={true}
+        >
+          {code.trim()}
+        </SyntaxHighlighter>
+      </div>
+    );
+    
+    lastIndex = codeBlockRegex.lastIndex;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    elements.push(
+      <span key={`text-${lastIndex}`}>{linkify(text.slice(lastIndex), urlRegex)}</span>
+    );
+  }
+
+  return elements;
+}
+
+function linkify(text, urlRegex) {
   const parts = text.split(urlRegex);
   return parts.map((part, i) =>
     urlRegex.test(part)
       ? <a key={i} href={part} target="_blank" rel="noreferrer" className="chat-link">{part}</a>
       : part
   );
+}
+
+// Helper to get lower res thumbnail
+function getCloudinaryThumb(url) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  return url.replace('/upload/', '/upload/c_limit,w_400/');
+}
+
+// Helper to get poster frame for video
+function getCloudinaryPoster(url) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  // Replace extension with .jpg and add video thumbnail transformation
+  return url.replace(/\.[^/.]+$/, '.jpg').replace('/upload/', '/upload/so_0/');
 }
 
 function formatTime(ts) {
@@ -137,14 +205,14 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
 
         {/* ── Text ── */}
         {msg.type === 'text' && (
-          <p className="bubble-text">{linkify(msg.content)}</p>
+          <div className="bubble-text">{renderMessageText(msg.content)}</div>
         )}
 
         {/* ── Image ── */}
         {msg.type === 'image' && (
           <div className="bubble-img-wrapper">
             <img
-              src={msg.file_url}
+              src={getCloudinaryThumb(msg.file_url)}
               alt={msg.file_name}
               className="bubble-img"
               onClick={() => setImgExpanded(true)}
@@ -163,8 +231,36 @@ function MessageBubble({ msg, myRole, onDelete, canDelete }) {
           </div>
         )}
 
-        {/* ── File ── */}
-        {msg.type === 'file' && (
+        {/* ── Video / Audio / PDF ── */}
+        {msg.type === 'file' && msg.mime_type?.startsWith('video/') && (
+          <div className="bubble-media-wrapper">
+            <video 
+              src={msg.file_url} 
+              poster={getCloudinaryPoster(msg.file_url)} 
+              controls 
+              preload="none" 
+              className="bubble-video" 
+            />
+          </div>
+        )}
+        
+        {msg.type === 'file' && msg.mime_type?.startsWith('audio/') && (
+          <div className="bubble-media-wrapper">
+            <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
+          </div>
+        )}
+
+        {msg.type === 'file' && msg.mime_type === 'application/pdf' && (
+          <div className="bubble-media-wrapper">
+            <iframe src={`${msg.file_url}#toolbar=0`} className="bubble-pdf-preview" title="PDF Preview" />
+            <a href={msg.file_url} target="_blank" rel="noreferrer" className="bubble-pdf-open" title="Open Full PDF">
+              Open Full PDF
+            </a>
+          </div>
+        )}
+
+        {/* ── Generic File ── */}
+        {msg.type === 'file' && !msg.mime_type?.startsWith('video/') && !msg.mime_type?.startsWith('audio/') && msg.mime_type !== 'application/pdf' && (
           <div className="bubble-file">
             <File size={15} className="bubble-file-icon" />
             <div className="bubble-file-info">
@@ -208,6 +304,14 @@ export default function ChatWindow({
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewHeight, setPreviewHeight] = useState(0);
+  
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
+  
   const scrollRef   = useRef(null);
   const threadRef   = useRef(null);
   const fileInputRef = useRef(null);
@@ -235,6 +339,64 @@ export default function ChatWindow({
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Voice Note Handlers
+  const startRecording = async () => {
+    if (disabled || sending) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `voice_note_${Date.now()}.webm`, { type: 'audio/webm' });
+        setFilePreviews(prev => [...prev, { file: audioFile, name: 'Voice Note 🎤' }]);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      toast.error('Microphone access denied or unavailable');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.onstop = null; // Prevent saving
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+      toast('Recording cancelled', { icon: '🗑️' });
+    }
+  };
+
+  const formatRecordingTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   const handleSend = async () => {
     if (!text.trim() || sending || disabled) return;
@@ -478,19 +640,44 @@ export default function ChatWindow({
               onKeyDown={handleKey}
               onPaste={handlePaste}
               rows={1}
-              disabled={sending}
+              disabled={sending || isRecording}
+              style={{ display: isRecording ? 'none' : 'block' }}
             />
-            <button
-              className={`chat-send ${text.trim() ? 'chat-send--active' : ''}`}
-              onClick={handleSend}
-              disabled={!text.trim() || sending}
-              title="Send"
-            >
-              {sending
-                ? <span className="spinner" style={{width:14,height:14}} />
-                : <Send size={14} />
-              }
-            </button>
+            {isRecording && (
+              <div className="chat-recording-indicator">
+                <div className="recording-dot"></div>
+                <span className="recording-time">{formatRecordingTime(recordingTime)}</span>
+                <button className="chat-cancel-record" onClick={cancelRecording}>Cancel</button>
+              </div>
+            )}
+            
+            {text.trim() || filePreviews.length > 0 ? (
+              <button
+                className="chat-send chat-send--active"
+                onClick={handleSend}
+                disabled={sending}
+                title="Send"
+              >
+                {sending ? <span className="spinner" style={{width:14,height:14}} /> : <Send size={14} />}
+              </button>
+            ) : isRecording ? (
+              <button
+                className="chat-send chat-record chat-record--active"
+                onClick={stopRecording}
+                title="Stop & Attach"
+              >
+                <Square size={14} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                className="chat-send chat-record"
+                onClick={startRecording}
+                disabled={sending}
+                title="Record Voice Note"
+              >
+                <Mic size={16} />
+              </button>
+            )}
           </div>
         </div>
       )}
