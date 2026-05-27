@@ -542,7 +542,6 @@ function QRModal({ room, onClose, onRevoke }: any) {
 
 function UploadRow({ upload, onDelete }: any) {
   const [copied, setCopied] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const isImg = upload.file_type?.startsWith('image/');
   const isExp = upload.expires_at && new Date(upload.expires_at) < new Date();
   const copy = () => { 
@@ -550,28 +549,7 @@ function UploadRow({ upload, onDelete }: any) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-  const dl = async () => { 
-    try {
-      setDownloading(true);
-      const dirHandle = await getDownloadDirectory();
-      let savedDirectly = false;
-      if (dirHandle && await verifyPermission(dirHandle, true)) {
-        const res = await fetch(upload.cloudinary_url);
-        const blob = await res.blob();
-        await saveFileToDirectory(dirHandle, upload.file_name, blob);
-        savedDirectly = true;
-        toast.success(`Saved directly to local vault`, { style: { background: '#020617', color: '#10b981', border: '1px solid #10b981' } });
-      }
-      if (!savedDirectly) {
-        const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click(); 
-      }
-    } catch (err) {
-      console.error('Direct save failed', err);
-      const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click();
-    } finally {
-      setDownloading(false);
-    }
-  };
+  const dl = () => { const a = document.createElement('a'); a.href = upload.cloudinary_url; a.download = upload.file_name; a.click(); };
 
   return (
     <motion.div
@@ -602,9 +580,7 @@ function UploadRow({ upload, onDelete }: any) {
       </div>
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase disabled:opacity-50" onClick={dl} disabled={downloading} title="Download">
-          {downloading ? <span className="w-3 h-3 border-2 border-cyan-400/20 border-t-cyan-400 rounded-full animate-spin inline-block" /> : <Download size={14} />}
-        </button>
+        <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={dl} title="Download"><Download size={14} /></button>
         <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={copy} title="Copy URL">
           {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
         </button>
@@ -957,13 +933,32 @@ export default function DashboardPage() {
     onDropRejected: () => toast.error('ERR: Max 20MB allowed'),
   });
 
-  const handleSaveLocal = (name: string) => {
+  const handleSaveLocal = async (name: string) => {
     const { file } = pendingFile;
+    let ext = file.name && file.name.includes('.') ? file.name.split('.').pop() : null;
+    if (!ext) {
+      ext = file.type ? file.type.split('/')[1] : 'png';
+    }
+    const fullFileName = `${name}.${ext}`;
+
+    try {
+      if (isFileSystemAccessSupported()) {
+        const dirHandle = await getDownloadDirectory();
+        if (dirHandle && await verifyPermission(dirHandle, true)) {
+           await saveFileToDirectory(dirHandle, fullFileName, file);
+           toast.success('Written to local vault', { style: { background: '#020617', color: '#10b981', border: '1px solid #10b981' } });
+           setPendingFile(null);
+           return;
+        }
+      }
+    } catch (e) {
+      console.error('Direct local save failed, falling back', e);
+    }
+
     const url = URL.createObjectURL(file);
     const a = document.createElement('a');
-    const ext = file.name.split('.').pop() || 'png';
     a.href = url;
-    a.download = `${name}.${ext}`;
+    a.download = fullFileName;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setPendingFile(null);
