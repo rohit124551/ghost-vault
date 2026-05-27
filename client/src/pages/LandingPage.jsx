@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import GhostLogo from '../components/GhostLogo';
-import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon, MessageSquare } from 'lucide-react';
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -120,7 +120,7 @@ export default function LandingPage() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl mx-auto mt-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 w-full max-w-6xl mx-auto mt-24 px-4">
           <div className="p-6 bg-bgCard border border-borderBase rounded-sm hover-glitch transition-colors">
             <ShieldAlert className="w-10 h-10 text-accent mb-4" />
             <h3 className="font-display font-bold text-xl mb-2">Secure Asset Vault</h3>
@@ -135,6 +135,11 @@ export default function LandingPage() {
             <Lock className="w-10 h-10 text-amber-400 mb-4" />
             <h3 className="font-display font-bold text-xl mb-2">Zero Auth Guests</h3>
             <p className="text-textSecondary text-sm font-mono leading-relaxed">Generate 4-char access tokens. Guests don't need accounts to collaborate.</p>
+          </div>
+          <div className="p-6 bg-bgCard border border-borderBase rounded-sm hover-glitch transition-colors">
+            <MessageSquare className="w-10 h-10 text-purple-400 mb-4" />
+            <h3 className="font-display font-bold text-xl mb-2">Premium Chat</h3>
+            <p className="text-textSecondary text-sm font-mono leading-relaxed">Telegram-style voice notes, rich media players, PDF previews, and emoji reactions built-in.</p>
           </div>
         </div>
 
