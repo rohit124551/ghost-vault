@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -120,12 +120,33 @@ function getFileTypeFromName(fileName) {
 }
 
 /* ── Message Bubble ── */
-function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
+function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, guestId }) {
   const [mediaExpanded, setMediaExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
   const isMe = msg.sender === myRole;
+
+  useEffect(() => {
+    if (msg.type === 'burned') return;
+    if (msg.burn_after_seconds && msg.viewed_at) {
+      const burnTime = new Date(msg.viewed_at).getTime() + (msg.burn_after_seconds * 1000);
+      const updateTimer = () => {
+        const now = new Date().getTime();
+        const remaining = Math.ceil((burnTime - now) / 1000);
+        if (remaining <= 0) {
+          setTimeLeft(0);
+          onBurn(msg.id); // Trigger burn API
+        } else {
+          setTimeLeft(remaining);
+        }
+      };
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [msg.burn_after_seconds, msg.viewed_at, msg.id, msg.type, onBurn]);
 
   const handleReactClick = (emoji, forceRemove = false) => {
     setShowEmojiPicker(false);
@@ -179,6 +200,11 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
 
 
 
+  // if (timeLeft === 0) return null; // Removed so we can render the tombstone
+
+  const isBurned = msg.type === 'burned' || timeLeft === 0;
+  const isBlurred = !isMe && msg.burn_after_seconds && !msg.viewed_at && !isBurned;
+
   return (
     <div className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'}`}>
       {/* Avatar — shown for other person only */}
@@ -190,30 +216,34 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
 
       {/* Floating action toolbar — appears outside bubble on hover */}
       <div className={`bubble-toolbar ${isMe ? 'bubble-toolbar--left' : 'bubble-toolbar--right'}`}>
-        {(msg.type === 'image' || msg.type === 'file') && (
+        {(msg.type === 'image' || msg.type === 'file') && !isBlurred && !isBurned && (
           <button className="bubble-action" title="Download" onClick={handleDownload}>
             <Download size={12} />
           </button>
         )}
-        <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy">
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-        </button>
-        <div className="relative">
-          <button
-            className="bubble-action bubble-action--react"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            title="React"
-          >
-            <SmilePlus size={12} />
+        {!isBlurred && !isBurned && (
+          <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy">
+            {copied ? <Check size={12} /> : <Copy size={12} />}
           </button>
-          {showEmojiPicker && (
-            <div className={`chat-mini-emoji-picker ${isMe ? 'chat-mini-emoji-picker--left' : ''}`}>
-              {QUICK_EMOJIS.map(e => (
-                <button key={e} onClick={() => handleReactClick(e)}>{e}</button>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
+        {!isBurned && (
+          <div className="relative">
+            <button
+              className="bubble-action bubble-action--react"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              title="React"
+            >
+              <SmilePlus size={12} />
+            </button>
+            {showEmojiPicker && (
+              <div className={`chat-mini-emoji-picker ${isMe ? 'chat-mini-emoji-picker--left' : ''}`}>
+                {QUICK_EMOJIS.map(e => (
+                  <button key={e} onClick={() => handleReactClick(e)}>{e}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {canDelete && myRole === 'owner' && (
           <button
             className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`}
@@ -225,19 +255,37 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
         )}
       </div>
 
-      <div className={`bubble ${isMe ? 'bubble--mine' : 'bubble--theirs'}`}>
+      <div className={`bubble ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}>
         {/* Sender name only — no actions here anymore */}
         <div className="bubble-meta">
           <span className="bubble-sender">
             {isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
           </span>
+          {msg.burn_after_seconds && !isBurned && (
+            <span className="bubble-timer-badge">
+              <Timer size={10} />
+              {msg.viewed_at ? (timeLeft !== null ? `${timeLeft}s` : '0s') : (isMe ? `Sent (${msg.burn_after_seconds}s)` : `${msg.burn_after_seconds}s`)}
+            </span>
+          )}
         </div>
 
-
-        {/* ── Text ── */}
-        {msg.type === 'text' && (
-          <div className="bubble-text">{renderMessageText(msg.content)}</div>
-        )}
+        {isBurned ? (
+          <div className="bubble-burned-content">
+            <EyeOff size={16} className="opacity-50" />
+            <span className="text-xs italic opacity-60">Viewed</span>
+          </div>
+        ) : isBlurred ? (
+          <div className="bubble-burn-overlay" onClick={() => onView(msg.id)}>
+            <EyeOff size={24} className="mb-2 opacity-80" />
+            <span className="text-xs font-bold uppercase tracking-widest opacity-90">Tap to View</span>
+            <span className="text-[10px] opacity-60 mt-1">Destructs in {msg.burn_after_seconds}s</span>
+          </div>
+        ) : (
+          <>
+            {/* ── Text ── */}
+            {msg.type === 'text' && (
+              <div className="bubble-text">{renderMessageText(msg.content)}</div>
+            )}
 
         {/* ── Image ── */}
         {msg.type === 'image' && (
@@ -341,6 +389,8 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
             </button>
           </div>
         )}
+          </>
+        )}
 
         <span className="bubble-time-float">{formatTime(msg.created_at)}</span>
         
@@ -393,16 +443,20 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
    - disabled           boolean (if room is expired/revoked)
    ══════════════════════════════════════════════ */
 export default function ChatWindow({
-  messages, onSendText, onSendFile,
-  onDelete, canDelete, onReact, loading,
+messages, onSendText, onSendFile,
+  onDelete, canDelete, onReact, onView, onBurn, loading,
   myRole = 'owner', disabled = false
 }) {
   const [text, setText]       = useState('');
+  const [timerDuration, setTimerDuration] = useState(null); // null = off
+  const [showTimerPicker, setShowTimerPicker] = useState(false);
+  const [customTimerInput, setCustomTimerInput] = useState('');
   const [sending, setSending] = useState(false);
   const [filePreviews, setFilePreviews] = useState([]); // Array of { file, name }
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewHeight, setPreviewHeight] = useState(0);
+  const [showTimerMenu, setShowTimerMenu] = useState(false);
   
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -528,18 +582,32 @@ export default function ChatWindow({
     
     if (voiceNotePreview) {
       setSending(true);
-      await onSendFile(voiceNotePreview.file);
+      await onSendFile(voiceNotePreview.file, timerDuration);
       URL.revokeObjectURL(voiceNotePreview.url);
       setVoiceNotePreview(null);
       setSending(false);
       return;
     }
     
-    if (!text.trim()) return;
+    if (!text.trim() && filePreviews.length === 0) return;
     setSending(true);
-    await onSendText(text.trim());
-    setText('');
-    setSending(false);
+
+    try {
+      if (filePreviews.length > 0) {
+        for (const p of filePreviews) {
+          await onSendFile(p.file, timerDuration);
+        }
+        setFilePreviews([]);
+      }
+      if (text.trim()) {
+        await onSendText(text.trim(), timerDuration);
+        setText('');
+      }
+    } catch (err) {
+      toast.error('Failed to send message');
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKey = (e) => {
@@ -558,9 +626,7 @@ export default function ChatWindow({
         return;
       }
       e.preventDefault();
-      if (filePreviews.length > 0 && !sending) {
-        handleFileSend();
-      } else if (text.trim() && !sending) {
+      if ((filePreviews.length > 0 || text.trim()) && !sending) {
         handleSend();
       }
     }
@@ -620,21 +686,6 @@ export default function ChatWindow({
 
   const removeFile = (index) => {
     setFilePreviews(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleFileSend = async () => {
-    if (filePreviews.length === 0 || sending || disabled) return;
-    setSending(true);
-    try {
-      for (const p of filePreviews) {
-        await onSendFile(p.file);
-      }
-      setFilePreviews([]);
-    } catch (err) {
-      toast.error('Failed to send some files');
-    } finally {
-      setSending(false);
-    }
   };
 
   return (
@@ -711,6 +762,8 @@ export default function ChatWindow({
                   onDelete={onDelete}
                   canDelete={canDelete}
                   onReact={onReact}
+                  onView={onView}
+                  onBurn={onBurn}
                   guestId={guestId}
                 />
               </div>
@@ -734,13 +787,6 @@ export default function ChatWindow({
               </div>
             ))}
           </div>
-          <button
-            className="btn btn-primary btn-sm chat-files-send-btn"
-            onClick={handleFileSend}
-            disabled={sending}
-          >
-            {sending ? <span className="spinner" style={{width:12,height:12}} /> : `Send ${filePreviews.length > 1 ? filePreviews.length + ' Files' : 'File'}`}
-          </button>
         </div>
       )}
 
@@ -799,6 +845,57 @@ export default function ChatWindow({
                 </button>
               </div>
             )}
+            
+            <div className="relative">
+              <button
+                className={`chat-timer-toggle ${timerDuration ? 'chat-timer-toggle--active' : ''}`}
+                onClick={() => setShowTimerPicker(!showTimerPicker)}
+                title="Self-Destruct Timer"
+                disabled={sending}
+              >
+                <Timer size={16} />
+                {timerDuration && (
+                  <span className="chat-timer-badge">
+                    {timerDuration < 60 ? `${timerDuration}s` : timerDuration < 3600 ? `${Math.floor(timerDuration/60)}m` : `${Math.floor(timerDuration/3600)}h`}
+                  </span>
+                )}
+              </button>
+              {showTimerPicker && (
+                <div className="chat-timer-picker">
+                  <div className="text-[10px] uppercase font-bold text-textGhost mb-2 tracking-widest">Self Destruct</div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button className={`btn btn-sm ${timerDuration === null ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(null); setShowTimerPicker(false); }}>Off</button>
+                    <button className={`btn btn-sm ${timerDuration === 10 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(10); setShowTimerPicker(false); }}>10s</button>
+                    <button className={`btn btn-sm ${timerDuration === 60 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(60); setShowTimerPicker(false); }}>1m</button>
+                    <button className={`btn btn-sm ${timerDuration === 3600 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(3600); setShowTimerPicker(false); }}>1h</button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      placeholder="Custom (s)" 
+                      className="flex-1 bg-bgBase border border-borderBase rounded-md text-xs px-2 py-1 outline-none focus:border-cyan-500 text-textPrimary font-mono w-20"
+                      value={customTimerInput}
+                      onChange={(e) => setCustomTimerInput(e.target.value)}
+                      onKeyDown={(e) => {
+                         if (e.key === 'Enter' && customTimerInput) {
+                           setTimerDuration(parseInt(customTimerInput) || null);
+                           setShowTimerPicker(false);
+                         }
+                      }}
+                    />
+                    <button 
+                      className="btn btn-primary btn-sm px-3"
+                      onClick={() => {
+                        if (customTimerInput) setTimerDuration(parseInt(customTimerInput) || null);
+                        setShowTimerPicker(false);
+                      }}
+                    >
+                      Set
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             
             {text.trim() || filePreviews.length > 0 || voiceNotePreview ? (
               <button

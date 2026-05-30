@@ -172,9 +172,10 @@
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #ffffff;
   border-radius: 20px 20px 4px 20px;
-  padding: 10px 16px 20px 16px;
+  padding: 10px 16px 24px 16px;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2);
   position: relative;
+  min-width: 80px;
 }
 
 .bubble--theirs {
@@ -182,9 +183,10 @@
   border: 1px solid var(--border-active);
   color: var(--text-primary);
   border-radius: 20px 20px 20px 4px;
-  padding: 10px 16px 20px 16px;
+  padding: 10px 16px 24px 16px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   position: relative;
+  min-width: 80px;
 }
 
 /* Meta row (sender name only) */
@@ -575,17 +577,6 @@
 .chat-file-chip-remove:hover {
   color: #fff;
   background: var(--danger);
-}
-
-.chat-files-send-btn {
-  flex-shrink: 0;
-  padding: 6px 14px;
-  font-weight: 700;
-  border-radius: 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
 }
 
 @keyframes slideIn {
@@ -1144,4 +1135,131 @@
 .bubble-media-wrapper--audio:hover .bubble-expand-media-btn:hover {
   transform: scale(1.15);
   color: #fff;
+}
+
+/* ── Self-Destruct Timers ── */
+.bubble--blurred {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-active);
+  min-width: 200px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bubble-burn-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 16px;
+  color: var(--text-primary);
+  transition: opacity 150ms, transform 150ms;
+}
+
+.bubble-burn-overlay:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.bubble-timer-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 800;
+  margin-left: 8px;
+}
+
+.bubble--mine .bubble-timer-badge {
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.chat-timer-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-ghost);
+  cursor: pointer;
+  transition: all 150ms;
+  margin-right: 4px;
+}
+
+.chat-timer-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.chat-timer-toggle--active {
+  color: var(--danger);
+  background: var(--danger-transparent);
+}
+
+.chat-timer-toggle--active:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.chat-timer-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger);
+  color: white;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 4px;
+  border-radius: 8px;
+  border: 2px solid var(--bg-card);
+  line-height: 1;
+}
+
+.chat-timer-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: -10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-active);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  width: 180px;
+  z-index: 50;
+  animation: slideUpFade 150ms ease-out;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Viewed Tombstone ── */
+.bubble--tombstone {
+  background: transparent !important;
+  border: 1px solid var(--border-active) !important;
+  box-shadow: none !important;
+  min-width: 60px !important;
+  padding: 8px 12px 20px 12px !important;
+  opacity: 0.7;
+}
+
+.bubble-burned-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-ghost);
+  margin-top: 4px;
 }
