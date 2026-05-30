@@ -224,12 +224,12 @@ router.delete('/:token/permanent', requireOwner, async (req, res, next) => {
 
     if (fetchErr || !room) return res.status(404).json({ error: 'Room not found' });
 
-    // 2. Collect all Cloudinary public IDs from room_messages
+    // 2. Collect all Cloudinary URLs from messages
     const { data: messages } = await supabase
-      .from('room_messages')
-      .select('cloudinary_public_id, mime_type')
+      .from('messages')
+      .select('file_url, file_name, type')
       .eq('room_id', room.id)
-      .not('cloudinary_public_id', 'is', null);
+      .not('file_url', 'is', null);
 
     // 3. Collect all Cloudinary public IDs from uploads
     const { data: uploads } = await supabase
@@ -243,7 +243,18 @@ router.delete('/:token/permanent', requireOwner, async (req, res, next) => {
 
     if (messages) {
       messages.forEach(m => {
-        deletePromises.push(deleteFromCloudinary(m.cloudinary_public_id, m.mime_type));
+        if (m.file_url) {
+          const parts = m.file_url.split('/upload/');
+          if (parts.length > 1) {
+            let path = parts[1];
+            if (path.match(/^v\d+\//)) path = path.replace(/^v\d+\//, '');
+            const lastDot = path.lastIndexOf('.');
+            if (lastDot > -1) path = path.substring(0, lastDot);
+            
+            const ext = (m.file_name || '').split('.').pop().toLowerCase();
+            deletePromises.push(deleteFromCloudinary(path, ext || m.type));
+          }
+        }
       });
     }
 
@@ -258,7 +269,7 @@ router.delete('/:token/permanent', requireOwner, async (req, res, next) => {
     // 5. Hard delete room (this will cascade to messages if ON DELETE CASCADE is set,
     // but we manually delete associated uploads just in case)
     await supabase.from('uploads').delete().eq('room_id', room.id);
-    await supabase.from('room_messages').delete().eq('room_id', room.id);
+    await supabase.from('messages').delete().eq('room_id', room.id);
     const { error: delErr } = await supabase.from('rooms').delete().eq('id', room.id);
 
     if (delErr) throw delErr;

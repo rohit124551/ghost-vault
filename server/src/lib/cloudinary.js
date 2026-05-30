@@ -46,12 +46,13 @@ const roomFileUpload = multer({
  * Delete an asset from Cloudinary by public_id
  */
 async function deleteFromCloudinary(publicId, typeOrMime = 'image') {
-  let resourceType = typeOrMime;
-
-  if (typeOrMime && typeOrMime.includes('/')) {
-    if (typeOrMime.startsWith('image/') || typeOrMime === 'application/pdf') {
+  let resourceType = 'raw';
+  
+  if (typeOrMime) {
+    const t = typeOrMime.toLowerCase();
+    if (t.startsWith('image/') || t === 'application/pdf' || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'pdf', 'image'].includes(t)) {
       resourceType = 'image';
-    } else if (typeOrMime.startsWith('video/') || typeOrMime.startsWith('audio/')) {
+    } else if (t.startsWith('video/') || t.startsWith('audio/') || ['mp4', 'webm', 'mov', 'mp3', 'wav', 'ogg', 'video'].includes(t)) {
       resourceType = 'video';
     } else {
       resourceType = 'raw';

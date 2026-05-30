@@ -6,7 +6,7 @@ const express = require('express');
 const router = express.Router({ mergeParams: true });
 const supabase = require('../lib/supabase');
 const requireOwner = require('../middleware/requireOwner');
-const { roomFileUpload } = require('../lib/cloudinary');
+const { roomFileUpload, deleteFromCloudinary } = require('../lib/cloudinary');
 
 // Resolve room_id from token (shared helper)
 async function getRoomByToken(token) {
@@ -147,6 +147,31 @@ router.post('/file', (req, res, next) => {
 router.delete('/:id', requireOwner, async (req, res, next) => {
   try {
     const { token, id } = req.params;
+    
+    // Fetch message first to get file_url
+    const { data: msg, error: fetchErr } = await supabase
+      .from('messages')
+      .select('file_url, file_name, type')
+      .eq('id', id)
+      .single();
+      
+    if (!fetchErr && msg && msg.file_url) {
+      const parts = msg.file_url.split('/upload/');
+      if (parts.length > 1) {
+        let path = parts[1];
+        if (path.match(/^v\d+\//)) {
+          path = path.replace(/^v\d+\//, '');
+        }
+        const lastDot = path.lastIndexOf('.');
+        if (lastDot > -1) {
+          path = path.substring(0, lastDot);
+        }
+        
+        const ext = (msg.file_name || '').split('.').pop().toLowerCase();
+        await deleteFromCloudinary(path, ext || msg.type);
+      }
+    }
+
     const { error } = await supabase
       .from('messages')
       .delete()
