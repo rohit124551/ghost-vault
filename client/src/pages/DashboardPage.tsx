@@ -883,15 +883,16 @@ export default function DashboardPage() {
   }, [socket, rooms, chatRoom, joinRoom]);
 
   useEffect(() => {
-    const handlePopState = (e: any) => {
-      if (chatRoom) {
-        // If chat is open and we go back, just close the chat instead of leaving page
+    const handleHashChange = () => {
+      if (window.location.hash !== '#chat' && chatRoom) {
         setChatRoom(null);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (document.querySelector('.fs-viewer-overlay')) return;
+        
         if (chatRoom) closeChat();
         if (showCreateRoom) setShowCreateRoom(false);
         if (qrRoom) setQrRoom(null);
@@ -903,17 +904,17 @@ export default function DashboardPage() {
       }
     };
 
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handleHashChange);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [chatRoom, showCreateRoom, qrRoom, activeTab]);
 
   const closeChat = () => {
     setChatRoom(null);
-    if (window.history.state === 'chat-view') {
+    if (window.location.hash === '#chat') {
       window.history.back();
     }
   };
@@ -1070,8 +1071,8 @@ export default function DashboardPage() {
     setActiveTab('nodes');
     setChatRoom(room);
     setDesktopSidebarOpen(false); // Auto-close main sidebar for focus
-    // Push state so back button works on mobile
-    window.history.pushState('chat-view', '');
+    // Set hash so back button works reliably on mobile
+    window.location.hash = 'chat';
     setChatLoading(true);
     try {
       const res = await api.get(`/api/rooms/${room.token}/messages`);
