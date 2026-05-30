@@ -37,13 +37,8 @@ router.get('/:id', async (req, res, next) => {
     await supabase.from('uploads').delete().eq('id', id);
 
     // 4. Delete from Cloudinary
-    // Determine resource type for Cloudinary deletion
-    const isImage = upload.file_type && upload.file_type.startsWith('image/');
-    const isVideo = upload.file_type && upload.file_type.startsWith('video/');
-    const resourceType = isVideo ? 'video' : (isImage ? 'image' : 'raw');
-    
     // We don't await this so it happens in the background, making the response faster
-    deleteFromCloudinary(upload.cloudinary_public_id, resourceType).catch(err => {
+    deleteFromCloudinary(upload.cloudinary_public_id, upload.file_type).catch(err => {
       console.error('Burn: Failed to delete from cloudinary', err);
     });
 

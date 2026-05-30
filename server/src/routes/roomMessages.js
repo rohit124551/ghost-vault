@@ -74,8 +74,7 @@ router.delete('/:token/:messageId', validateRoomToken, async (req, res, next) =>
     if (fetchError || !msg) return res.status(404).json({ error: 'Message not found' });
 
     if (msg.cloudinary_public_id) {
-      const isImage = msg.mime_type?.startsWith('image/');
-      await deleteFromCloudinary(msg.cloudinary_public_id, isImage ? 'image' : 'raw');
+      await deleteFromCloudinary(msg.cloudinary_public_id, msg.mime_type);
     }
 
     const { error } = await supabase

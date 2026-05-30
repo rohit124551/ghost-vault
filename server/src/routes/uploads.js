@@ -45,8 +45,7 @@ router.delete('/:id', requireOwner, async (req, res, next) => {
 
     // Delete from Cloudinary
     if (upload.cloudinary_public_id) {
-      const isImage = upload.file_type?.startsWith('image/');
-      await deleteFromCloudinary(upload.cloudinary_public_id, isImage ? 'image' : 'raw');
+      await deleteFromCloudinary(upload.cloudinary_public_id, upload.file_type);
     }
 
     // Delete from DB

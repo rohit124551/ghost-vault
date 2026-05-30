@@ -243,15 +243,13 @@ router.delete('/:token/permanent', requireOwner, async (req, res, next) => {
 
     if (messages) {
       messages.forEach(m => {
-        const isImage = m.mime_type?.startsWith('image/');
-        deletePromises.push(deleteFromCloudinary(m.cloudinary_public_id, isImage ? 'image' : 'raw'));
+        deletePromises.push(deleteFromCloudinary(m.cloudinary_public_id, m.mime_type));
       });
     }
 
     if (uploads) {
       uploads.forEach(u => {
-        const isImage = u.file_type?.startsWith('image/');
-        deletePromises.push(deleteFromCloudinary(u.cloudinary_public_id, isImage ? 'image' : 'raw'));
+        deletePromises.push(deleteFromCloudinary(u.cloudinary_public_id, u.file_type));
       });
     }
 

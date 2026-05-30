@@ -45,7 +45,19 @@ const roomFileUpload = multer({
 /**
  * Delete an asset from Cloudinary by public_id
  */
-async function deleteFromCloudinary(publicId, resourceType = 'image') {
+async function deleteFromCloudinary(publicId, typeOrMime = 'image') {
+  let resourceType = typeOrMime;
+
+  if (typeOrMime && typeOrMime.includes('/')) {
+    if (typeOrMime.startsWith('image/') || typeOrMime === 'application/pdf') {
+      resourceType = 'image';
+    } else if (typeOrMime.startsWith('video/') || typeOrMime.startsWith('audio/')) {
+      resourceType = 'video';
+    } else {
+      resourceType = 'raw';
+    }
+  }
+
   try {
     await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
   } catch (err) {
