@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS messages (
   file_url    TEXT,                -- Cloudinary URL
   file_name   TEXT,
   file_size   BIGINT,
+  burn_after_seconds INTEGER,      -- self-destruct timer duration in seconds
+  viewed_at   TIMESTAMPTZ,         -- when the timer started
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

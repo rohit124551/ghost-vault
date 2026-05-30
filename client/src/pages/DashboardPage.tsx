@@ -865,6 +865,16 @@ export default function DashboardPage() {
         setChatRoom((prev: any) => ({ ...prev, expires_at: expiresAt, note: newNote, is_active: isActive ?? prev?.is_active }));
       }
     };
+    const onMessageViewed = ({ id, viewed_at, roomToken }: any) => {
+      if (chatRoom && roomToken === chatRoom.token) {
+        setChatMessages(prev => prev.map(m => m.id === id ? { ...m, viewed_at } : m));
+      }
+    };
+    const onMessageBurned = ({ id, roomToken }: any) => {
+      if (chatRoom && roomToken === chatRoom.token) {
+        setChatMessages(prev => prev.map(m => m.id === id ? { ...m, type: 'burned', content: null, file_url: null, file_name: null } : m));
+      }
+    };
 
     socket.on('new_file', onFile);
     socket.on('new_message', onMessage);
@@ -872,6 +882,8 @@ export default function DashboardPage() {
     socket.on('message_deleted', onMessageDeleted);
     socket.on('message_reacted', onMessageReacted);
     socket.on('room_updated', onRoomUpdated);
+    socket.on('message_viewed', onMessageViewed);
+    socket.on('message_burned', onMessageBurned);
     return () => {
       socket.off('new_file', onFile);
       socket.off('new_message', onMessage);
@@ -879,6 +891,8 @@ export default function DashboardPage() {
       socket.off('message_deleted', onMessageDeleted);
       socket.off('message_reacted', onMessageReacted);
       socket.off('room_updated', onRoomUpdated);
+      socket.off('message_viewed', onMessageViewed);
+      socket.off('message_burned', onMessageBurned);
     };
   }, [socket, rooms, chatRoom, joinRoom]);
 
@@ -1082,10 +1096,10 @@ export default function DashboardPage() {
     joinRoom(room.token);
   };
 
-  const handleOwnerSendText = async (text: string) => {
+  const handleOwnerSendText = async (text: string, burn_after_seconds: number | null = null) => {
     if (!chatRoom) return;
     try {
-      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/text`, { content: text, sender: 'owner' });
+      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/text`, { content: text, sender: 'owner', burn_after_seconds });
       setChatMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
@@ -1093,12 +1107,15 @@ export default function DashboardPage() {
     } catch { toast.error('TX failed'); }
   };
 
-  const handleOwnerSendFile = async (file: File) => {
+  const handleOwnerSendFile = async (file: File, burn_after_seconds: number | null = null) => {
     if (!chatRoom) return;
     const fd = new FormData();
     fd.append('file', file);
     fd.append('sender', 'owner');
     fd.append('fileName', file.name);
+    if (burn_after_seconds) {
+      fd.append('burn_after_seconds', burn_after_seconds.toString());
+    }
     try {
       const res = await api.post(`/api/rooms/${chatRoom.token}/messages/file`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setChatMessages(prev => {
@@ -1130,6 +1147,24 @@ export default function DashboardPage() {
     } catch {
       toast.error('Failed to react');
     }
+  };
+
+  const handleViewMessage = async (msgId: string) => {
+    if (!chatRoom) return;
+    try {
+      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/${msgId}/view`);
+      if (res.data.viewed_at) {
+        setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, viewed_at: res.data.viewed_at } : m));
+      }
+    } catch {}
+  };
+
+  const handleBurnMessage = async (msgId: string) => {
+    if (!chatRoom) return;
+    try {
+      await api.post(`/api/rooms/${chatRoom.token}/messages/${msgId}/burn`);
+      setChatMessages(prev => prev.map(m => m.id === msgId ? { ...m, type: 'burned', content: null, file_url: null, file_name: null } : m));
+    } catch {}
   };
 
   const handleRoomUpdate = (updatedRoom: any) => {
@@ -1456,6 +1491,8 @@ export default function DashboardPage() {
                       onSendFile={handleOwnerSendFile}
                       onDelete={handleDeleteMessage}
                       onReact={handleReact}
+                      onView={handleViewMessage}
+                      onBurn={handleBurnMessage}
                       canDelete={true}
                       loading={chatLoading}
                       myRole="owner"

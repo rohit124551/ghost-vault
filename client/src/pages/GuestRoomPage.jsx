@@ -227,16 +227,29 @@ export default function GuestRoomPage() {
       navigate('/404', { replace: true });
     });
 
+    s.on('message_viewed', ({ id, viewed_at, roomToken }) => {
+      if (roomToken === token) {
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, viewed_at } : m));
+      }
+    });
+
+    s.on('message_burned', ({ id, roomToken }) => {
+      if (roomToken === token) {
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, type: 'burned', content: null, file_url: null, file_name: null } : m));
+      }
+    });
+
     return () => s.disconnect();
   }, [token, navigate]);
 
   // Guest sends text
-  const handleSendText = async (text) => {
+  const handleSendText = async (text, burn_after_seconds = null) => {
     if (status !== 'valid') return;
     try {
       const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/text`, {
         content: text,
         sender: 'guest',
+        burn_after_seconds
       });
       setMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;
@@ -246,14 +259,20 @@ export default function GuestRoomPage() {
   };
 
   // Guest sends file
-  const handleSendFile = async (file) => {
+  const handleSendFile = async (file, burn_after_seconds = null) => {
     if (status !== 'valid') return;
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('sender', 'guest');
-    fd.append('fileName', file.name);
     try {
-      const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, fd);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sender', 'guest');
+      formData.append('fileName', file.name);
+      if (burn_after_seconds) {
+        formData.append('burn_after_seconds', burn_after_seconds);
+      }
+      
+      const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       setMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
@@ -271,6 +290,24 @@ export default function GuestRoomPage() {
         forceRemove
       });
     } catch { /* silently fail */ }
+  };
+
+  const handleViewMessage = async (msgId) => {
+    if (status !== 'valid') return;
+    try {
+      const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/${msgId}/view`);
+      if (res.data.viewed_at) {
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, viewed_at: res.data.viewed_at } : m));
+      }
+    } catch {}
+  };
+
+  const handleBurnMessage = async (msgId) => {
+    if (status !== 'valid') return;
+    try {
+      await axios.post(`${API_URL}/api/rooms/${token}/messages/${msgId}/burn`);
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, type: 'burned', content: null, file_url: null, file_name: null } : m));
+    } catch {}
   };
 
   if (status === 'loading') {
@@ -348,6 +385,8 @@ export default function GuestRoomPage() {
             onSendText={handleSendText}
             onSendFile={handleSendFile}
             onReact={handleReact}
+            onView={handleViewMessage}
+            onBurn={handleBurnMessage}
             onDelete={null}
             canDelete={false}
             loading={chatLoad}

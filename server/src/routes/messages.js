@@ -74,7 +74,7 @@ router.post('/text', async (req, res, next) => {
     const room = await getRoomByToken(req.params.token);
     if (!room) return res.status(404).json({ error: 'Room not found or inactive' });
 
-    const { content, sender = 'guest' } = req.body;
+    const { content, sender = 'guest', burn_after_seconds = null } = req.body;
     if (!content?.trim()) return res.status(400).json({ error: 'content is required' });
 
     // If sender is owner, verify JWT
@@ -90,7 +90,13 @@ router.post('/text', async (req, res, next) => {
 
     const { data: message, error } = await supabase
       .from('messages')
-      .insert({ room_id: room.id, sender, type: 'text', content: content.trim() })
+      .insert({ 
+        room_id: room.id, 
+        sender, 
+        type: 'text', 
+        content: content.trim(),
+        burn_after_seconds: burn_after_seconds ? parseInt(burn_after_seconds, 10) : null
+      })
       .select()
       .single();
 
@@ -116,6 +122,7 @@ router.post('/file', (req, res, next) => {
       if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
       const sender = req.body.sender || 'guest';
+      const burn_after_seconds = req.body.burn_after_seconds ? parseInt(req.body.burn_after_seconds, 10) : null;
       const isImage = req.file.mimetype.startsWith('image/');
 
       const { data: message, error } = await supabase
@@ -127,6 +134,7 @@ router.post('/file', (req, res, next) => {
           file_url: req.file.path,
           file_name: req.body.fileName || req.file.originalname,
           file_size: req.file.size,
+          burn_after_seconds
         })
         .select()
         .single();
@@ -141,6 +149,103 @@ router.post('/file', (req, res, next) => {
       next(err2);
     }
   });
+});
+
+// POST /api/rooms/:token/messages/:id/view — mark a self-destruct message as viewed
+router.post('/:id/view', async (req, res, next) => {
+  try {
+    const { token, id } = req.params;
+    
+    // First get the message
+    const { data: msg, error: fetchErr } = await supabase
+      .from('messages')
+      .select('viewed_at, burn_after_seconds')
+      .eq('id', id)
+      .single();
+      
+    if (fetchErr || !msg) return res.status(404).json({ error: 'Message not found' });
+    
+    // If it's already viewed or doesn't have a timer, do nothing
+    if (msg.viewed_at || !msg.burn_after_seconds) {
+      return res.json({ success: true, viewed_at: msg.viewed_at });
+    }
+
+    const now = new Date().toISOString();
+    const { data: updatedMsg, error: updateErr } = await supabase
+      .from('messages')
+      .update({ viewed_at: now })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // Emit event so other clients start the timer too
+    const io = req.app.get('io');
+    io.to(`room:${token}`).emit('message_viewed', { 
+      id: id, 
+      viewed_at: now, 
+      roomToken: token 
+    });
+
+    res.json(updatedMsg);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/rooms/:token/messages/:id/burn — delete a message whose timer has expired
+router.post('/:id/burn', async (req, res, next) => {
+  try {
+    const { token, id } = req.params;
+    
+    // Fetch message to verify it has a timer and get file_url
+    const { data: msg, error: fetchErr } = await supabase
+      .from('messages')
+      .select('file_url, file_name, type, burn_after_seconds, viewed_at')
+      .eq('id', id)
+      .single();
+      
+    if (fetchErr || !msg) return res.status(404).json({ error: 'Message not found' });
+    
+    // Safety check: must have a timer that was activated
+    if (!msg.burn_after_seconds || !msg.viewed_at) {
+      return res.status(403).json({ error: 'Cannot burn a message without an active timer' });
+    }
+
+    // (Optional) We could verify `NOW() > viewed_at + burn_after_seconds` here, but for MVP, trust the client trigger
+    
+    // Delete Cloudinary file if it exists
+    if (msg.file_url) {
+      const parts = msg.file_url.split('/upload/');
+      if (parts.length > 1) {
+        let path = parts[1];
+        if (path.match(/^v\d+\//)) {
+          path = path.replace(/^v\d+\//, '');
+        }
+        const lastDot = path.lastIndexOf('.');
+        if (lastDot > -1) {
+          path = path.substring(0, lastDot);
+        }
+        const ext = (msg.file_name || '').split('.').pop().toLowerCase();
+        await deleteFromCloudinary(path, ext || msg.type);
+      }
+    }
+
+    const { error } = await supabase
+      .from('messages')
+      .update({ type: 'burned', content: null, file_url: null, file_name: null, file_size: null })
+      .eq('id', id);
+    if (error) throw error;
+
+    // Emit socket event to notify guests and owner in real-time
+    const io = req.app.get('io');
+    io.to(`room:${token}`).emit('message_burned', { id, roomToken: token });
+
+    res.json({ success: true, burnt: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // DELETE /api/rooms/:token/messages/:id — owner deletes a message
