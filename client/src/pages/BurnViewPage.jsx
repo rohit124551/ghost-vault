@@ -46,8 +46,9 @@ export default function BurnViewPage() {
 
   return (
     <div className="min-h-screen bg-bgBase flex flex-col items-center justify-center p-4">
-      <div className="absolute top-6 left-6">
-        <GhostLogo />
+      <div className="absolute top-6 left-6 flex items-center gap-2">
+        <GhostLogo className="w-6 h-6 text-textGhost" />
+        <span className="text-xs font-mono text-textGhost uppercase tracking-widest hidden sm:inline">GhostVault</span>
       </div>
 
       <motion.div 

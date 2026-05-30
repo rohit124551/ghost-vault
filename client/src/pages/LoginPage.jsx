@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { ArrowLeft, Terminal, ShieldAlert, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Terminal, ShieldAlert, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function LoginPage() {
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [showPwd, setShowPwd]   = useState(false);
   const inputRef = useRef(null);
   const { theme, toggleTheme } = useTheme();
   const [clientIp, setClientIp] = useState('FETCHING...');
@@ -96,13 +97,21 @@ export default function LoginPage() {
           <div className="relative group">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-textGhost font-mono font-bold group-focus-within:text-cyan-400 transition-colors">{'>'}</span>
             <input
-              type="password"
-              className="w-full bg-bgHover border border-borderActive text-textPrimary font-mono text-sm px-8 py-3 rounded-sm focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(34,211,238,0.2)] transition-all placeholder:text-textGhost"
+              type={showPwd ? 'text' : 'password'}
+              className="w-full bg-bgHover border border-borderActive text-textPrimary font-mono text-sm px-8 py-3 rounded-sm focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(34,211,238,0.2)] transition-all placeholder:text-textGhost pr-10"
               placeholder="ACCESS_KEY"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
             />
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-textGhost hover:text-cyan-400 transition-colors"
+              onClick={() => setShowPwd(p => !p)}
+              tabIndex={-1}
+            >
+              {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
           </div>
 
           {error && (

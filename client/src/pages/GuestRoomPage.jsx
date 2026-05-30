@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, Timer, Bug, Send, X, Mail } from 'lucide-react';
+import { Sun, Moon, Timer, Bug, Send, X, Mail, Infinity } from 'lucide-react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import ChatWindow from '../components/ChatWindow';
+import GhostLogo from '../components/GhostLogo';
 import './GuestRoomPage.css';
 
 const API_URL    = import.meta.env.VITE_API_URL    || 'http://localhost:4000';
@@ -284,40 +285,50 @@ export default function GuestRoomPage() {
     <div className="guest-root">
       <div className="guest-vault-container">
         {/* ── Branded Header ── */}
-        <div className="guest-navbar">
-          <div className="guest-brand">
-            <span className="ghost-icon">👻</span>
-            <span className="guest-logo">GhostVault</span>
+        <div className="flex items-center justify-between px-4 py-3 bg-bgCard border-b border-borderBase shrink-0">
+          {/* Brand */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <GhostLogo className="w-5 h-5 text-cyan-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-display font-bold text-sm text-textPrimary leading-tight tracking-wide">GhostVault</div>
+              <div className="font-mono text-[9px] text-cyan-400 uppercase tracking-widest leading-none hidden sm:block">Secure Tunnel</div>
+            </div>
           </div>
-          <div className="guest-header-meta">
-            <button 
-              className="btn btn-ghost btn-icon btn-sm" 
+
+          {/* Meta */}
+          <div className="flex items-center gap-2 shrink-0">
+            {timeLeft && (
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-sm border text-[10px] font-mono font-bold ${
+                timeLeft === 'Infinite'
+                  ? 'border-borderBase text-textGhost'
+                  : 'border-accent/30 text-accent bg-accent/5'
+              }`}>
+                <Timer size={10} /> {timeLeft}
+              </div>
+            )}
+            <div className="flex items-center gap-1 px-2 py-1 bg-bgBase border border-borderBase rounded-sm">
+              <span className="text-[9px] font-mono text-textSecondary uppercase tracking-widest hidden sm:inline">Room</span>
+              <span className="text-[10px] font-mono text-cyan-400 font-bold tracking-widest">{token}</span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
+              <span className="hidden sm:inline">Live</span>
+            </div>
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-sm border border-borderBase text-textGhost hover:text-textPrimary hover:bg-bgHover transition-colors"
               onClick={toggleTheme}
-              style={{ marginRight: '8px' }}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
             </button>
-            
-            {timeLeft && (
-              <div style={{ marginRight: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontFamily: 'monospace', color: timeLeft === 'Infinite' ? 'var(--text-ghost)' : 'var(--accent)' }}>
-                <Timer size={12} /> {timeLeft}
-              </div>
-            )}
-            
-            <div className="guest-token-badge">
-              Room <span className="mono">{token}</span>
-            </div>
-            <div className="guest-status">
-              <span className="guest-status-dot" /> Live
-            </div>
           </div>
         </div>
 
+        {/* Room note */}
         {note && (
-          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-base)', backgroundColor: 'var(--bg-card)', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>
-            <strong style={{ color: 'var(--text-primary)', marginRight: '8px' }}>Purpose:</strong> 
-            {note}
+          <div className="px-4 py-2.5 border-b border-borderBase bg-bgBase/60 flex items-center justify-center gap-2">
+            <span className="text-[10px] font-mono font-bold text-textGhost uppercase tracking-widest">Purpose:</span>
+            <span className="text-xs text-textSecondary font-ui">{note}</span>
           </div>
         )}
 
@@ -336,22 +347,14 @@ export default function GuestRoomPage() {
           />
         </div>
 
-        <div className="guest-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          <p style={{ margin: 0 }}>This session is temporary. Data will vanish when revoked.</p>
-          <button
-            className="md:hidden flex items-center justify-center w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500 hover:text-white transition-colors"
-            onClick={() => setShowBugModal(true)}
-            title="Report a bug"
-            aria-label="Report a Bug"
-          >
-            <Bug size={12} />
-          </button>
+        <div className="guest-footer">
+          <p>This session is temporary. Data will vanish when revoked.</p>
         </div>
       </div>
 
-      {/* ── Floating Bug Report Button ── */}
+      {/* ── Floating Bug Report Button (all devices) ── */}
       <button
-        className="hidden md:flex fixed bottom-6 right-6 w-[48px] h-[48px] rounded-full bg-gradient-to-br from-purple-600 to-pink-500 border border-white/15 text-white items-center justify-center cursor-pointer z-[8000] shadow-[0_8px_24px_rgba(124,58,237,0.5),0_0_0_4px_rgba(124,58,237,0.15)] hover:scale-110 hover:-translate-y-1 transition-all"
+        className="guest-bug-fab"
         onClick={() => setShowBugModal(true)}
         title="Report a bug"
         aria-label="Report a Bug"

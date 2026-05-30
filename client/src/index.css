@@ -27,9 +27,14 @@
   --text-ghost:     #64748b;
 
   /* Accents — Emerald & Cyan */
-  --accent:      #10b981;
-  --accent-glow: rgba(16, 185, 129, 0.15);
-  --accent-hover:#34d399;
+  --accent:              #10b981;
+  --accent-glow:         rgba(16, 185, 129, 0.15);
+  --accent-hover:        #34d399;
+  --accent-transparent:  rgba(16, 185, 129, 0.12);
+
+  /* Semantic transparents */
+  --danger-transparent:  rgba(239, 68, 68, 0.12);
+  --cyan-transparent:    rgba(6, 182, 212, 0.12);
 
   /* Shadows - Minimalist */
   --shadow-sm: 0 2px 4px rgba(0,0,0,0.4);
@@ -64,9 +69,14 @@
   --text-ghost:     #78716c;
 
   /* Accents — Emerald */
-  --accent:      #059669;
-  --accent-glow: rgba(5, 150, 105, 0.08);
-  --accent-hover:#10b981;
+  --accent:              #059669;
+  --accent-glow:         rgba(5, 150, 105, 0.08);
+  --accent-hover:        #10b981;
+  --accent-transparent:  rgba(5, 150, 105, 0.10);
+
+  /* Semantic transparents */
+  --danger-transparent:  rgba(220, 38, 38, 0.10);
+  --cyan-transparent:    rgba(8, 145, 178, 0.10);
 
   /* Semantic */
   --cyan:    #0891b2;
@@ -95,9 +105,12 @@
   --text-primary:   #f8fafc;
   --text-secondary: #94a3b8;
   --text-ghost:     #64748b;
-  --accent:      #10b981;
-  --accent-glow: rgba(16, 185, 129, 0.15);
-  --accent-hover:#34d399;
+  --accent:              #10b981;
+  --accent-glow:         rgba(16, 185, 129, 0.15);
+  --accent-hover:        #34d399;
+  --accent-transparent:  rgba(16, 185, 129, 0.12);
+  --danger-transparent:  rgba(239, 68, 68, 0.12);
+  --cyan-transparent:    rgba(6, 182, 212, 0.12);
   --cyan:    #06b6d4;
   --danger:  #ef4444;
   --success: #10b981;

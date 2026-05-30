@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import GhostLogo from '../components/GhostLogo';
-import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon, MessageSquare } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon, MessageSquare, Menu, X as CloseIcon } from 'lucide-react';
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -13,6 +13,7 @@ export default function LandingPage() {
   const fullText = "Paste. Share. Vanish.";
   const [typedText, setTypedText] = useState("");
   const { theme, toggleTheme } = useTheme();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (user && !location.state?.fromSidebar) {
@@ -40,15 +41,16 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-bgBase text-textPrimary font-ui flex flex-col">
       {/* Navbar */}
-      <nav className="w-full h-20 px-6 md:px-12 flex items-center justify-between border-b border-borderBase bg-bgCard/80 backdrop-blur-md sticky top-0 z-50">
+      <nav className="w-full h-16 md:h-20 px-6 md:px-12 flex items-center justify-between border-b border-borderBase bg-bgCard/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <GhostLogo className="w-8 h-8 text-cyan-400 animate-float" />
+          <GhostLogo className="w-7 h-7 text-cyan-400 animate-float" />
           <div>
-            <div className="font-display font-bold tracking-wide text-lg leading-tight">GhostVault</div>
-            <div className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest leading-none">Sec_Ops Console</div>
+            <div className="font-display font-bold tracking-wide text-base md:text-lg leading-tight">GhostVault</div>
+            <div className="text-[9px] text-cyan-400 font-mono uppercase tracking-widest leading-none hidden md:block">Sec_Ops Console</div>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 md:gap-6">
+          {/* Desktop links */}
           <div className="hidden md:flex items-center gap-5 text-textGhost border-r border-borderBase pr-6">
             <button onClick={toggleTheme} className="hover:text-textPrimary transition-colors" title="Toggle Theme">
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
@@ -61,14 +63,18 @@ export default function LandingPage() {
             </a>
           </div>
           {user ? (
-            <Link to="/dash" className="px-5 py-2.5 rounded-sm bg-accent text-white font-mono font-bold text-sm hover:bg-accentHover transition-colors shadow-lg flex items-center gap-2">
+            <Link to="/dash" className="px-4 md:px-5 py-2 md:py-2.5 rounded-sm bg-accent text-white font-mono font-bold text-sm hover:bg-accentHover transition-colors shadow-lg flex items-center gap-2">
               Command Center <ArrowRight size={16} />
             </Link>
           ) : (
-            <Link to="/login" className="px-5 py-2.5 rounded-sm border border-borderActive text-textPrimary font-mono font-bold text-sm hover:bg-bgHover transition-colors flex items-center gap-2">
+            <Link to="/login" className="px-4 md:px-5 py-2 md:py-2.5 rounded-sm border border-borderActive text-textPrimary font-mono font-bold text-sm hover:bg-bgHover transition-colors flex items-center gap-2">
               System Login <ArrowRight size={16} />
             </Link>
           )}
+          {/* Mobile theme toggle */}
+          <button onClick={toggleTheme} className="md:hidden text-textGhost hover:text-textPrimary transition-colors" title="Toggle Theme">
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
       </nav>
 
@@ -96,16 +102,19 @@ export default function LandingPage() {
           <p className="text-lg md:text-xl text-textSecondary font-mono max-w-2xl mx-auto mb-10">
             Your personal screenshot vault and temporary file sharing terminal. Designed for maximum speed, security, and anonymity with secure chats and real-time tunnels.
           </p>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             {user ? (
-               <Link to="/dash" className="px-8 py-4 rounded-sm bg-cyan-500 text-white font-mono font-bold hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20 text-lg flex items-center gap-2">
-                Init Tunnel
-               </Link>
+              <Link to="/dash" className="px-7 py-3.5 rounded-sm bg-cyan-500 text-white font-mono font-bold hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20 text-base flex items-center gap-2">
+                Init Tunnel <ArrowRight size={18} />
+              </Link>
             ) : (
-               <Link to="/login" className="px-8 py-4 rounded-sm bg-cyan-500 text-white font-mono font-bold hover:bg-cyan-400 transition-colors shadow-lg shadow-cyan-500/20 text-lg flex items-center gap-2">
-                 Get Access
-               </Link>
+              <Link to="/login" className="px-7 py-3.5 rounded-sm bg-cyan-500 text-white font-mono font-bold hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20 text-base flex items-center gap-2">
+                Get Access <ArrowRight size={18} />
+              </Link>
             )}
+            <a href="#features" className="px-7 py-3.5 rounded-sm border border-borderActive text-textSecondary font-mono font-bold hover:bg-bgHover hover:text-textPrimary transition-all text-base">
+              See Features
+            </a>
           </div>
         </div>
 
@@ -120,27 +129,19 @@ export default function LandingPage() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 w-full max-w-6xl mx-auto mt-24 px-4">
-          <div className="p-6 bg-bgCard border border-borderBase rounded-sm hover-glitch transition-colors">
-            <ShieldAlert className="w-10 h-10 text-accent mb-4" />
-            <h3 className="font-display font-bold text-xl mb-2">Secure Asset Vault</h3>
-            <p className="text-textSecondary text-sm font-mono leading-relaxed">Retain complete history as the admin. Set assets to persist indefinitely, or configure them to self-destruct upon expiration.</p>
-          </div>
-          <div className="p-6 bg-bgCard border border-borderBase rounded-sm hover-glitch transition-colors">
-            <Zap className="w-10 h-10 text-cyan-400 mb-4" />
-            <h3 className="font-display font-bold text-xl mb-2">Real-time Tunnels</h3>
-            <p className="text-textSecondary text-sm font-mono leading-relaxed">Instantly sync clipboards, send data payloads, and live-chat via Socket.io.</p>
-          </div>
-          <div className="p-6 bg-bgCard border border-borderBase rounded-sm hover-glitch transition-colors">
-            <Lock className="w-10 h-10 text-amber-400 mb-4" />
-            <h3 className="font-display font-bold text-xl mb-2">Zero Auth Guests</h3>
-            <p className="text-textSecondary text-sm font-mono leading-relaxed">Generate 4-char access tokens. Guests don't need accounts to collaborate.</p>
-          </div>
-          <div className="p-6 bg-bgCard border border-borderBase rounded-sm hover-glitch transition-colors">
-            <MessageSquare className="w-10 h-10 text-purple-400 mb-4" />
-            <h3 className="font-display font-bold text-xl mb-2">Premium Chat</h3>
-            <p className="text-textSecondary text-sm font-mono leading-relaxed">Telegram-style voice notes, rich media players, PDF previews, and emoji reactions built-in.</p>
-          </div>
+        <div id="features" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto mt-24 px-4">
+          {[
+            { icon: <ShieldAlert className="w-8 h-8 text-accent" />, title: 'Secure Asset Vault', desc: 'Retain complete history as the admin. Set assets to persist indefinitely, or configure them to self-destruct upon expiration.', color: 'accent' },
+            { icon: <Zap className="w-8 h-8 text-cyan-400" />, title: 'Real-time Tunnels', desc: 'Instantly sync clipboards, send data payloads, and live-chat via Socket.io.', color: 'cyan-400' },
+            { icon: <Lock className="w-8 h-8 text-amber-400" />, title: 'Zero Auth Guests', desc: 'Generate 4-char access tokens. Guests don\'t need accounts to collaborate.', color: 'amber-400' },
+            { icon: <MessageSquare className="w-8 h-8 text-purple-400" />, title: 'Premium Chat', desc: 'Voice notes, rich media players, PDF previews, emoji reactions — all built-in.', color: 'purple-400' },
+          ].map((f, i) => (
+            <div key={i} className="group p-6 bg-bgCard border border-borderBase rounded-sm transition-all duration-300 hover:border-borderActive hover:bg-bgHover hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20">
+              <div className="mb-4">{f.icon}</div>
+              <h3 className="font-display font-bold text-lg mb-2 text-textPrimary">{f.title}</h3>
+              <p className="text-textSecondary text-sm font-mono leading-relaxed">{f.desc}</p>
+            </div>
+          ))}
         </div>
 
         {/* Our Story Section */}
