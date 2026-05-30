@@ -290,6 +290,17 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
         {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'audio' && (
           <div className="bubble-media-wrapper bubble-media-wrapper--audio">
             <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
+            <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
+              <ZoomIn size={14} />
+            </button>
+            {mediaExpanded && (
+              <FullScreenImageViewer
+                imageUrl={msg.file_url}
+                imageName={msg.file_name}
+                fileType="audio"
+                onClose={() => setMediaExpanded(false)}
+              />
+            )}
           </div>
         )}
 
