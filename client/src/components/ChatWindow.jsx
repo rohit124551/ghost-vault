@@ -188,52 +188,49 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
         </div>
       )}
 
+      {/* Floating action toolbar — appears outside bubble on hover */}
+      <div className={`bubble-toolbar ${isMe ? 'bubble-toolbar--left' : 'bubble-toolbar--right'}`}>
+        {(msg.type === 'image' || msg.type === 'file') && (
+          <button className="bubble-action" title="Download" onClick={handleDownload}>
+            <Download size={12} />
+          </button>
+        )}
+        <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy">
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+        </button>
+        <div className="relative">
+          <button
+            className="bubble-action bubble-action--react"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            title="React"
+          >
+            <SmilePlus size={12} />
+          </button>
+          {showEmojiPicker && (
+            <div className={`chat-mini-emoji-picker ${isMe ? 'chat-mini-emoji-picker--left' : ''}`}>
+              {QUICK_EMOJIS.map(e => (
+                <button key={e} onClick={() => handleReactClick(e)}>{e}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        {canDelete && myRole === 'owner' && (
+          <button
+            className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`}
+            onClick={handleDelete}
+            title={confirmDelete ? 'Confirm?' : 'Delete'}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
       <div className={`bubble ${isMe ? 'bubble--mine' : 'bubble--theirs'}`}>
-        {/* Sender + actions row */}
+        {/* Sender name only — no actions here anymore */}
         <div className="bubble-meta">
           <span className="bubble-sender">
             {isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
           </span>
-          <div className="bubble-actions">
-            {/* Download button — always shown for image/file messages */}
-            {(msg.type === 'image' || msg.type === 'file') && (
-              <button
-                className="bubble-action"
-                title="Download"
-                onClick={handleDownload}
-              >
-                <Download size={10} />
-              </button>
-            )}
-            <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy Link">
-              {copied ? <Check size={10} /> : <Copy size={10} />}
-            </button>
-            <div className="relative">
-              <button 
-                className="bubble-action bubble-action--react" 
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-                title="React"
-              >
-                <SmilePlus size={10} />
-              </button>
-              {showEmojiPicker && (
-                <div className="chat-mini-emoji-picker">
-                  {QUICK_EMOJIS.map(e => (
-                    <button key={e} onClick={() => handleReactClick(e)}>{e}</button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {canDelete && myRole === 'owner' && (
-              <button 
-                className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`} 
-                onClick={handleDelete} 
-                title={confirmDelete ? 'Confirm Delete?' : 'Delete'}
-              >
-                <X size={10} />
-              </button>
-            )}
-          </div>
         </div>
 
 

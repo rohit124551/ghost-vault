@@ -314,6 +314,15 @@ export default function GuestRoomPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
               <span className="hidden sm:inline">Live</span>
             </div>
+            {/* Bug report — lives in header, always accessible */}
+            <button
+              className="w-7 h-7 flex items-center justify-center rounded-sm border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-all"
+              onClick={() => setShowBugModal(true)}
+              title="Report a bug"
+              aria-label="Report a Bug"
+            >
+              <Bug size={13} />
+            </button>
             <button
               className="w-7 h-7 flex items-center justify-center rounded-sm border border-borderBase text-textGhost hover:text-textPrimary hover:bg-bgHover transition-colors"
               onClick={toggleTheme}
@@ -351,16 +360,6 @@ export default function GuestRoomPage() {
           <p>This session is temporary. Data will vanish when revoked.</p>
         </div>
       </div>
-
-      {/* ── Floating Bug Report Button (all devices) ── */}
-      <button
-        className="guest-bug-fab"
-        onClick={() => setShowBugModal(true)}
-        title="Report a bug"
-        aria-label="Report a Bug"
-      >
-        <Bug size={20} />
-      </button>
 
       {/* ── Bug Report Modal ── */}
       {showBugModal && (

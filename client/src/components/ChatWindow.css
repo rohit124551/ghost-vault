@@ -82,13 +82,14 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* ── Bubble rows ── */
+/* ── Floating action toolbar (outside bubble, WhatsApp-style) ── */
 .bubble-row {
   display: flex;
   align-items: flex-end;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 16px;
   animation: slideUp 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
 .bubble-row--right {
@@ -98,6 +99,49 @@
 .bubble-row--left {
   flex-direction: row;
 }
+
+/* The toolbar sits between avatar and bubble, hidden by default */
+.bubble-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Show on hover of the whole row */
+.bubble-row:hover .bubble-toolbar {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* On touch devices, always show */
+@media (hover: none) {
+  .bubble-toolbar {
+    opacity: 1;
+    pointer-events: all;
+  }
+}
+
+/* Mobile Visibility */
+@media (max-width: 768px) {
+  .chat-thread { padding: 12px 16px; }
+  .bubble-row { gap: 6px; max-width: 100%; }
+  .bubble { max-width: calc(100% - 72px); }
+  .bubble--mine { max-width: 82%; }
+  .bubble-img-wrapper { width: 100%; }
+  .bubble-img { max-height: 240px; border-radius: 10px; }
+  /* Always show the overlay download btn on touch devices */
+  .bubble-img-dl { opacity: 1; transform: translateY(0); }
+  .bubble-action { padding: 5px; }
+  .bubble-file { min-width: unset; width: 100%; padding: 10px 12px; }
+  .chat-bar { padding: 12px 16px; }
+}
+
 
 /* Avatar */
 .bubble-avatar {
@@ -118,7 +162,7 @@
 
 /* Bubbles */
 .bubble {
-  max-width: 75%;
+  max-width: 72%;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -129,11 +173,9 @@
   color: #ffffff;
   border-radius: 20px 20px 4px 20px;
   padding: 10px 16px 20px 16px;
-  /* Added bottom padding for time */
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2);
   position: relative;
 }
-
 
 .bubble--theirs {
   background: var(--bg-card);
@@ -141,19 +183,16 @@
   color: var(--text-primary);
   border-radius: 20px 20px 20px 4px;
   padding: 10px 16px 20px 16px;
-  /* Added bottom padding for time */
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   position: relative;
 }
 
-
-/* Meta row */
+/* Meta row (sender name only) */
 .bubble-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
   margin-bottom: 4px;
-  padding: 0 4px;
+  padding: 0 2px;
 }
 
 .bubble-sender {
@@ -166,11 +205,11 @@
   opacity: 0.8;
 }
 
-
 .bubble--mine .bubble-sender {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.75);
 }
 
+/* Floating timestamp */
 .bubble-time-float {
   position: absolute;
   bottom: 6px;
@@ -185,41 +224,32 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
+/* Toolbar bubble-action buttons use solid bg since they're on neutral bg now */
+.bubble-toolbar .bubble-action {
+  background: var(--bg-card);
+  border: 1px solid var(--border-active);
+  color: var(--text-ghost);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
 
-.bubble-delete:hover {
+.bubble-toolbar .bubble-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-active);
+}
+
+.bubble-toolbar .bubble-action--delete:hover {
+  background: var(--danger-transparent);
   color: var(--danger);
+  border-color: var(--danger);
 }
 
-/* Actions */
-.bubble-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  opacity: 0;
-  transition: opacity 150ms;
+.bubble-toolbar .bubble-action--react:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
-
-.bubble:hover .bubble-actions {
-  opacity: 1;
-}
-
-/* Mobile Visibility */
-@media (max-width: 768px) {
-  .chat-thread { padding: 12px 16px; }
-  .bubble-row { gap: 8px; max-width: 100%; }
-  .bubble { max-width: calc(100% - 48px); }
-  .bubble--mine { max-width: 88%; }
-  .bubble-img-wrapper { width: 100%; }
-  .bubble-img { max-height: 240px; border-radius: 10px; }
-  /* Always show the overlay download btn on touch devices */
-  .bubble-img-dl { opacity: 1; transform: translateY(0); }
-  .bubble-actions { opacity: 1; }
-  .bubble-action { padding: 6px; }
-  .bubble-file { min-width: unset; width: 100%; padding: 10px 12px; }
-  .chat-bar { padding: 12px 16px; }
-}
-
 
 .bubble-action {
   background: rgba(255, 255, 255, 0.05);
@@ -892,16 +922,23 @@
 .chat-mini-emoji-picker {
   position: absolute;
   bottom: calc(100% + 8px);
-  right: 0;
-  background: #1e1e2e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  left: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-active);
   border-radius: 12px;
   padding: 6px;
   display: flex;
   gap: 4px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 200;
   animation: slide-up-fade 0.15s ease-out;
+  white-space: nowrap;
+}
+
+/* For my messages, toolbar is on the left — picker opens leftward */
+.chat-mini-emoji-picker--left {
+  left: auto;
+  right: 0;
 }
 
 @keyframes slide-up-fade {
@@ -920,8 +957,8 @@
 }
 
 .chat-mini-emoji-picker button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1);
+  background: var(--bg-hover);
+  transform: scale(1.15);
 }
 
 .bubble-reactions {
