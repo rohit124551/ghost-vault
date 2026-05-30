@@ -1021,3 +1021,127 @@
   color: var(--danger);
   background: var(--danger-transparent);
 }
+
+/* ── Media Bubbles (Audio, Video, PDF) ── */
+.bubble-media-wrapper {
+  position: relative;
+  display: block;
+  margin-top: 4px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  min-width: min(240px, 100%);
+  max-width: 100%;
+}
+
+.bubble-media-wrapper--audio {
+  background: transparent;
+  width: 260px;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.bubble-audio {
+  width: 100%;
+  height: 40px;
+  border-radius: 20px;
+  outline: none;
+}
+
+/* Force audio player to look ok on dark theme */
+.bubble-audio::-webkit-media-controls-panel {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.bubble--mine .bubble-audio::-webkit-media-controls-panel {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+.bubble-video {
+  width: 100%;
+  max-width: 320px;
+  max-height: 240px;
+  border-radius: 8px;
+  display: block;
+  object-fit: cover;
+  background: #000;
+}
+
+.bubble-pdf-preview {
+  width: 100%;
+  max-width: 320px;
+  height: 200px;
+  border: none;
+  background: #fff;
+  display: block;
+}
+
+.bubble-pdf-open {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  border: none;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+  text-align: center;
+  text-decoration: none;
+}
+
+.bubble-pdf-open:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.bubble-expand-media-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, transform 150ms;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.bubble-media-wrapper:hover .bubble-expand-media-btn {
+  opacity: 1;
+}
+
+.bubble-expand-media-btn:hover {
+  transform: scale(1.1);
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.bubble-media-wrapper--audio .bubble-expand-media-btn {
+  top: -24px;
+  right: 0px;
+  transform: none;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-ghost);
+  opacity: 1; /* Always visible for audio since it's outside the player */
+}
+
+.bubble--mine .bubble-media-wrapper--audio .bubble-expand-media-btn {
+  background: transparent;
+  border-color: transparent;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bubble-media-wrapper--audio:hover .bubble-expand-media-btn:hover {
+  transform: scale(1.15);
+  color: #fff;
+}
