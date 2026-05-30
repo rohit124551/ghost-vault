@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ZoomIn, ZoomOut, RotateCw, Download, X, RefreshCw } from 'lucide-react';
 import './FullScreenImageViewer.css';
 
-export default function FullScreenImageViewer({ imageUrl, imageName, onClose }) {
+export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 'image', onClose }) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
@@ -239,24 +239,28 @@ export default function FullScreenImageViewer({ imageUrl, imageName, onClose }) 
       {/* Immersive Glassmorphic Top Controls Bar */}
       <div className="fs-viewer-header" onClick={e => e.stopPropagation()}>
         <div className="fs-viewer-title-section">
-          <span className="fs-viewer-filename">{imageName || 'Shared Image'}</span>
-          {scale > 1 && <span className="fs-viewer-badge">{scale.toFixed(1)}x</span>}
+          <span className="fs-viewer-filename">{imageName || 'Shared File'}</span>
+          {scale > 1 && fileType === 'image' && <span className="fs-viewer-badge">{scale.toFixed(1)}x</span>}
         </div>
         
         <div className="fs-viewer-toolbar">
-          <button className="fs-btn" onClick={handleZoomIn} title="Zoom In">
-            <ZoomIn size={18} />
-          </button>
-          <button className="fs-btn" onClick={handleZoomOut} title="Zoom Out" disabled={scale === 1}>
-            <ZoomOut size={18} />
-          </button>
-          <button className="fs-btn" onClick={handleRotate} title="Rotate 90°">
-            <RotateCw size={18} />
-          </button>
-          <button className="fs-btn" onClick={handleReset} title="Reset Settings" disabled={scale === 1 && rotation === 0 && position.x === 0 && position.y === 0}>
-            <RefreshCw size={18} />
-          </button>
-          <div className="fs-divider" />
+          {fileType === 'image' && (
+            <>
+              <button className="fs-btn" onClick={handleZoomIn} title="Zoom In">
+                <ZoomIn size={18} />
+              </button>
+              <button className="fs-btn" onClick={handleZoomOut} title="Zoom Out" disabled={scale === 1}>
+                <ZoomOut size={18} />
+              </button>
+              <button className="fs-btn" onClick={handleRotate} title="Rotate 90°">
+                <RotateCw size={18} />
+              </button>
+              <button className="fs-btn" onClick={handleReset} title="Reset Settings" disabled={scale === 1 && rotation === 0 && position.x === 0 && position.y === 0}>
+                <RefreshCw size={18} />
+              </button>
+              <div className="fs-divider" />
+            </>
+          )}
           <button className="fs-btn fs-btn-download" onClick={handleDownload} title="Download Source File">
             <Download size={18} />
           </button>
@@ -269,24 +273,54 @@ export default function FullScreenImageViewer({ imageUrl, imageName, onClose }) 
       {/* Main Interactive Image Frame */}
       <div 
         className={`fs-viewer-frame ${scale > 1 ? 'fs-viewer-frame--zoomed' : ''}`}
-        onDoubleClick={handleDoubleTapToggle}
+        onDoubleClick={fileType === 'image' ? handleDoubleTapToggle : undefined}
       >
-        <img
-          ref={imgRef}
-          src={imageUrl}
-          alt={imageName}
-          className="fs-viewer-image"
-          style={{
-            transform: swipeTransform,
-            transition: isDraggingRef.current || swipeStartYRef.current !== null ? 'none' : 'transform 250ms cubic-bezier(0.19, 1, 0.22, 1)'
-          }}
-          draggable="false"
-        />
+        {fileType === 'image' && (
+          <img
+            ref={imgRef}
+            src={imageUrl}
+            alt={imageName}
+            className="fs-viewer-media"
+            style={{
+              transform: swipeTransform,
+              transition: isDraggingRef.current || swipeStartYRef.current !== null ? 'none' : 'transform 250ms cubic-bezier(0.19, 1, 0.22, 1)'
+            }}
+            draggable="false"
+          />
+        )}
+        
+        {fileType === 'video' && (
+          <video
+            src={imageUrl}
+            controls
+            autoPlay
+            className="fs-viewer-media"
+            style={{
+              transform: `translate3d(0, ${swipeOffset}px, 0)`,
+              transition: swipeStartYRef.current !== null ? 'none' : 'transform 250ms cubic-bezier(0.19, 1, 0.22, 1)'
+            }}
+            draggable="false"
+          />
+        )}
+        
+        {fileType === 'pdf' && (
+          <iframe
+            src={imageUrl}
+            title={imageName}
+            className="fs-viewer-media fs-viewer-pdf"
+            style={{
+              transform: `translate3d(0, ${swipeOffset}px, 0)`,
+              transition: swipeStartYRef.current !== null ? 'none' : 'transform 250ms cubic-bezier(0.19, 1, 0.22, 1)'
+            }}
+          />
+        )}
       </div>
 
       {/* Gesture Help Hint for mobile users */}
       <div className="fs-viewer-footer">
-        <p className="fs-hint">Pinch or scroll to zoom • Drag to pan • Swipe down to close</p>
+        <p className="fs-hint">
+          {fileType === 'image' ? 'Pinch or scroll to zoom • Drag to pan • Swipe down to close' : 'Swipe down outside the viewer to close'}
+        </p>
       </div>
     </div>
   );

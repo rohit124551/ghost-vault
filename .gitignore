@@ -13,6 +13,7 @@ client/.env
 client/.env.local
 server/.env
 DEPLOYMENT.md
+WHERE_IS_MY_APP.md
 
 # Build outputs
 dist/

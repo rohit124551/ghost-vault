@@ -121,7 +121,7 @@ function getFileTypeFromName(fileName) {
 
 /* ── Message Bubble ── */
 function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
-  const [imgExpanded, setImgExpanded] = useState(false);
+  const [mediaExpanded, setMediaExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -249,17 +249,18 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
               src={getCloudinaryThumb(msg.file_url)}
               alt={msg.file_name}
               className="bubble-img"
-              onClick={() => setImgExpanded(true)}
+              onClick={() => setMediaExpanded(true)}
               loading="lazy"
             />
             <a href={msg.file_url} className="bubble-img-dl" onClick={handleDownload} title="Download Image">
               <Download size={14} />
             </a>
-            {imgExpanded && (
+            {mediaExpanded && (
               <FullScreenImageViewer
                 imageUrl={msg.file_url}
                 imageName={msg.file_name}
-                onClose={() => setImgExpanded(false)}
+                fileType="image"
+                onClose={() => setMediaExpanded(false)}
               />
             )}
           </div>
@@ -275,6 +276,17 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
               preload="none" 
               className="bubble-video" 
             />
+            <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
+              <ZoomIn size={14} />
+            </button>
+            {mediaExpanded && (
+              <FullScreenImageViewer
+                imageUrl={msg.file_url}
+                imageName={msg.file_name}
+                fileType="video"
+                onClose={() => setMediaExpanded(false)}
+              />
+            )}
           </div>
         )}
         
@@ -286,10 +298,23 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, guestId }) {
 
         {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'pdf' && (
           <div className="bubble-media-wrapper">
-            <iframe src={`${msg.file_url}#toolbar=0`} className="bubble-pdf-preview" title="PDF Preview" />
-            <a href={msg.file_url} target="_blank" rel="noreferrer" className="bubble-pdf-open" title="Open Full PDF">
-              Open Full PDF
-            </a>
+            <iframe src={`${msg.file_url}#toolbar=0`} className="bubble-pdf-preview" title="PDF Preview" style={{pointerEvents: 'none'}} />
+            <div style={{display: 'flex', width: '100%'}}>
+              <button onClick={() => setMediaExpanded(true)} className="bubble-pdf-open" style={{borderRight: '1px solid rgba(255,255,255,0.1)'}}>
+                Preview PDF
+              </button>
+              <a href={msg.file_url} target="_blank" rel="noreferrer" className="bubble-pdf-open" title="Open Full PDF">
+                Open Tab
+              </a>
+            </div>
+            {mediaExpanded && (
+              <FullScreenImageViewer
+                imageUrl={msg.file_url}
+                imageName={msg.file_name}
+                fileType="pdf"
+                onClose={() => setMediaExpanded(false)}
+              />
+            )}
           </div>
         )}
 

@@ -155,8 +155,8 @@
   cursor: grabbing;
 }
 
-/* Main Image style */
-.fs-viewer-image {
+/* Main Media style */
+.fs-viewer-media {
   max-width: 90vw;
   max-height: 80vh;
   object-fit: contain;
@@ -167,6 +167,13 @@
   backface-visibility: hidden;
   perspective: 1000px;
   will-change: transform;
+}
+
+.fs-viewer-pdf {
+  width: 90vw;
+  height: 85vh;
+  background-color: white;
+  border: none;
 }
 
 /* Help Hint Footer */
@@ -232,7 +239,7 @@
     padding: 16px;
   }
   
-  .fs-viewer-image {
+  .fs-viewer-media {
     max-width: 95vw;
     max-height: 75vh;
     border-radius: 8px;
