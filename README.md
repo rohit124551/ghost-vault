@@ -13,6 +13,7 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **🚀 Instant Paste Sharing**: Press `Ctrl+V` anywhere on the dashboard to immediately upload a screenshot. The URL is automatically copied to your clipboard.
 - **📂 Native File System Access**: Bypass the browser's "Save As" dialogue completely. GhostVault can save pasted images directly to a chosen folder on your hard drive using the Native File System Access API.
 - **🔥 Burn After Reading**: Share ultra-sensitive credentials or images using Burn-After-Reading links. The server instantly purges the file from the cloud and database the moment the recipient views it.
+- **⏱️ Self-Destruct Messages**: Snapchat-style ephemeral chat messages. Set a custom countdown timer (e.g. 5s, 10s, 1m). Once viewed by the recipient, the message automatically hollows out into a "Viewed" tombstone and is permanently purged from the database and cloud storage.
 - **🗂️ In-Browser Folder Zipping**: Drag and drop an entire folder onto the dashboard. GhostVault will recursively zip the folder locally in your browser and upload it securely as a single `.zip` asset.
 - **📝 Syntax Highlighted Code Sharing**: Paste raw JSON, Python, JS, or text directly. GhostVault detects code and shares it using a built-in pastebin viewer with beautiful syntax highlighting.
 - **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
