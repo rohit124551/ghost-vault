@@ -602,6 +602,7 @@ messages, onSendText, onSendFile,
       await onSendFile(voiceNotePreview.file, timerDuration);
       URL.revokeObjectURL(voiceNotePreview.url);
       setVoiceNotePreview(null);
+      setTimerDuration(null);
       setSending(false);
       return;
     }
@@ -620,6 +621,7 @@ messages, onSendText, onSendFile,
         await onSendText(text.trim(), timerDuration);
         setText('');
       }
+      setTimerDuration(null);
     } catch (err) {
       toast.error('Failed to send message');
     } finally {
