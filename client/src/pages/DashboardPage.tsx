@@ -1174,18 +1174,22 @@ export default function DashboardPage() {
     }
 
     let text = `# GhostVault Chat Export: Room ${chatRoom.token}\n`;
-    text += `Generated: ${new Date().toLocaleString()}\n\n`;
+    text += `Generated: ${new Date().toLocaleString()}\n\n---\n\n`;
     
     chatMessages.forEach((m: any) => {
       const time = new Date(m.created_at).toLocaleString();
       const sender = m.sender === 'owner' ? 'Owner' : 'Guest';
       
+      text += `**${sender}** _(${time})_  \n`;
+      
       if (m.type === 'text') {
-        text += `[${time}] ${sender}: ${m.content}\n`;
+        // Replace single newlines with markdown line breaks (two spaces + newline)
+        const formattedContent = m.content.replace(/\n/g, '  \n');
+        text += `${formattedContent}\n\n`;
       } else if (m.type === 'image' || m.type === 'file') {
-        text += `[${time}] ${sender}: [${m.type.toUpperCase()}] ${m.file_name}\n`;
+        text += `> 📎 [${m.type.toUpperCase()}] ${m.file_name}\n\n`;
       } else if (m.type === 'burned') {
-        text += `[${time}] ${sender}: [BURNED MESSAGE]\n`;
+        text += `> 🔥 [BURNED MESSAGE]\n\n`;
       }
     });
 
