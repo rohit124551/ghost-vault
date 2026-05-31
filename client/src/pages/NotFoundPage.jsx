@@ -11,8 +11,10 @@ export default function NotFoundPage() {
   // Determine context from the URL to show a better message
   const isRoomLink = location.pathname.startsWith('/r/') || location.pathname.startsWith('/burn/');
 
-  const title = isRoomLink ? 'Tunnel Destroyed' : '404 — Not Found';
-  const subtitle = isRoomLink
+  const title = location.state?.reason === 'paused' ? 'Tunnel Paused' : isRoomLink ? 'Tunnel Destroyed' : '404 — Not Found';
+  const subtitle = location.state?.reason === 'paused'
+    ? 'This link has been temporarily suspended by the owner. Access is restricted.'
+    : isRoomLink
     ? 'This link has expired, been revoked, or never existed.'
     : 'The page you are looking for does not exist.';
 

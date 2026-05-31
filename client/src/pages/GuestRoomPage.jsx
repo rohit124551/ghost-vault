@@ -149,14 +149,11 @@ export default function GuestRoomPage() {
     axios.get(`${API_URL}/api/rooms/${token}/valid`)
       .then(async res => {
         if (!res.data.valid) {
-          return navigate('/404', { replace: true });
+        if (res.data.isPaused) {
+          return navigate('/404', { replace: true, state: { reason: 'paused' } });
         }
         
-        if (res.data.isPaused) {
-          setStatus('paused');
-        } else {
-          setStatus('valid');
-        }
+        setStatus('valid');
         setExpiresAt(res.data.expiresAt);
         setNote(res.data.note);
 
@@ -226,8 +223,7 @@ export default function GuestRoomPage() {
       if (newExpiry !== undefined) setExpiresAt(newExpiry);
       if (newNote !== undefined) setNote(newNote);
       if (isActive === false) navigate('/404', { replace: true });
-      if (isPaused === true) setStatus('paused');
-      if (isPaused === false) setStatus('valid');
+      if (isPaused === true) navigate('/404', { replace: true, state: { reason: 'paused' } });
     });
 
     s.on('room_revoked', () => {
@@ -356,16 +352,10 @@ export default function GuestRoomPage() {
               <span className="text-[9px] font-mono text-textSecondary uppercase tracking-widest hidden sm:inline">Room</span>
               <span className="text-[10px] font-mono text-cyan-400 font-bold tracking-widest">{token}</span>
             </div>
-            {status === 'paused' ? (
-              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500 font-mono uppercase bg-amber-500/10 px-1.5 py-0.5 rounded-sm border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                <span className="hidden sm:inline">Paused</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
-                <span className="hidden sm:inline">Live</span>
-              </div>
-            )}
+            <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
+              <span className="hidden sm:inline">Live</span>
+            </div>
             {/* Bug report — lives in header, always accessible */}
             <button
               className="w-7 h-7 flex items-center justify-center rounded-sm border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-all"

@@ -28,7 +28,15 @@ type Room = any;
 type UploadedFile = any;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function timeLeft(expiresAt: string) {
+function timeLeft(expiresAt: string | null, pausedRemainingSeconds?: number | null) {
+  if (pausedRemainingSeconds != null) {
+    const s = pausedRemainingSeconds;
+    if (s < 60) return `${s}s (Paused)`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ${s % 60}s (Paused)`;
+    return `${Math.floor(m / 60)}h ${m % 60}m (Paused)`;
+  }
+
   if (!expiresAt) return 'Infinite';
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (ms <= 0) return 'Expired';
@@ -460,15 +468,15 @@ function AdminBugModal({ onClose }: any) {
 }
 
 function QRModal({ room, onClose, onRevoke }: any) {
-  const [countdown, setCountdown] = useState(() => timeLeft(room.expiresAt));
+  const [countdown, setCountdown] = useState(() => timeLeft(room.expiresAt, room.paused_remaining_seconds));
   const [copied, setCopied] = useState(false);
   const link = `${BASE_URL}/r/${room.token}`;
 
   useEffect(() => {
-    if (!room.expiresAt) return;
-    const id = setInterval(() => setCountdown(timeLeft(room.expiresAt)), 1000);
+    if (!room.expiresAt && !room.paused_remaining_seconds) return;
+    const id = setInterval(() => setCountdown(timeLeft(room.expiresAt, room.paused_remaining_seconds)), 1000);
     return () => clearInterval(id);
-  }, [room.expiresAt]);
+  }, [room.expiresAt, room.paused_remaining_seconds]);
 
   const copy = () => { 
     copyToClipboard(link, null); // suppress global toast
@@ -605,16 +613,16 @@ function UploadRow({ upload, onDelete }: any) {
 }
 
 function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdit, isSelected }: any) {
-  const [countdown, setCountdown] = useState(() => timeLeft(room.expires_at));
+  const [countdown, setCountdown] = useState(() => timeLeft(room.expires_at, room.paused_remaining_seconds));
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const confirmTimer = useRef<any>(null);
 
   useEffect(() => {
-    if (!room.expires_at || !room.is_active) return;
-    const id = setInterval(() => setCountdown(timeLeft(room.expires_at)), 1000);
+    if (!room.expires_at && !room.paused_remaining_seconds) return;
+    const id = setInterval(() => setCountdown(timeLeft(room.expires_at, room.paused_remaining_seconds)), 1000);
     return () => clearInterval(id);
-  }, [room.expires_at, room.is_active]);
+  }, [room.expires_at, room.is_active, room.paused_remaining_seconds]);
 
   const handleRevoke = () => {
     if (!confirmRevoke) {

@@ -17,7 +17,7 @@ router.get('/:token/valid', async (req, res, next) => {
     const { token } = req.params;
     const { data: room, error } = await supabase
       .from('rooms')
-      .select('id, token, expires_at, is_active, is_paused, view_once, note')
+      .select('id, token, expires_at, is_active, is_paused, view_once, note, paused_remaining_seconds')
       .eq('token', token)
       .single();
 
@@ -40,6 +40,7 @@ router.get('/:token/valid', async (req, res, next) => {
       viewOnce: room.view_once,
       note: room.note,
       isPaused: room.is_paused,
+      pausedRemainingSeconds: room.paused_remaining_seconds,
     });
   } catch (err) {
     next(err);
@@ -105,7 +106,7 @@ router.get('/', requireOwner, async (req, res, next) => {
     const { data, error } = await supabase
       .from('rooms')
       .select(`
-        id, token, created_at, expires_at, view_once, is_active, is_paused, note,
+        id, token, created_at, expires_at, view_once, is_active, is_paused, note, paused_remaining_seconds,
         uploads(id, file_name, cloudinary_url, created_at, file_type)
       `)
       .order('created_at', { ascending: false });
@@ -156,7 +157,7 @@ router.patch('/:token', requireOwner, async (req, res, next) => {
 
     const { data: room, error: fetchErr } = await supabase
       .from('rooms')
-      .select('id, expires_at, is_active, is_paused, note')
+      .select('id, expires_at, is_active, is_paused, note, paused_remaining_seconds')
       .eq('token', token)
       .single();
 
@@ -171,17 +172,42 @@ router.patch('/:token', requireOwner, async (req, res, next) => {
     if (isActive !== undefined) updates.is_active = Boolean(isActive);
 
     // Handle pause toggle
-    if (isPaused !== undefined) updates.is_paused = Boolean(isPaused);
+    if (isPaused !== undefined) {
+      const pausing = Boolean(isPaused);
+      updates.is_paused = pausing;
+
+      if (pausing && !room.is_paused) {
+        if (room.expires_at) {
+          updates.paused_remaining_seconds = Math.max(0, Math.floor((new Date(room.expires_at).getTime() - Date.now()) / 1000));
+          updates.expires_at = null;
+        }
+      } else if (!pausing && room.is_paused) {
+        if (room.paused_remaining_seconds) {
+          updates.expires_at = new Date(Date.now() + room.paused_remaining_seconds * 1000).toISOString();
+          updates.paused_remaining_seconds = null;
+        }
+      }
+    }
 
     // Handle expiry extension: add minutes to CURRENT expiry (or from now)
+    const isCurrentlyPaused = updates.is_paused ?? room.is_paused;
     if (addMinutes && !isNaN(Number(addMinutes))) {
-      const base = room.expires_at ? new Date(room.expires_at) : new Date();
-      updates.expires_at = new Date(base.getTime() + Number(addMinutes) * 60 * 1000).toISOString();
+      if (isCurrentlyPaused) {
+        const currentRemaining = updates.paused_remaining_seconds ?? room.paused_remaining_seconds ?? 0;
+        updates.paused_remaining_seconds = currentRemaining + Number(addMinutes) * 60;
+      } else {
+        const base = updates.expires_at ? new Date(updates.expires_at) : (room.expires_at ? new Date(room.expires_at) : new Date());
+        updates.expires_at = new Date(base.getTime() + Number(addMinutes) * 60 * 1000).toISOString();
+      }
     } else if (clearExpiry) {
-      // Make it never expire
       updates.expires_at = null;
+      updates.paused_remaining_seconds = null;
     } else if (newExpiresAt) {
-      updates.expires_at = new Date(newExpiresAt).toISOString();
+      if (isCurrentlyPaused) {
+        updates.paused_remaining_seconds = Math.max(0, Math.floor((new Date(newExpiresAt).getTime() - Date.now()) / 1000));
+      } else {
+        updates.expires_at = new Date(newExpiresAt).toISOString();
+      }
     }
 
     if (Object.keys(updates).length === 0) {

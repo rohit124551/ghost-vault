@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS rooms (
   view_once   BOOLEAN DEFAULT FALSE,       -- auto-revoke after first file received
   note        TEXT,                        -- optional purpose/note for the room
   is_active   BOOLEAN DEFAULT TRUE,
-  is_paused   BOOLEAN DEFAULT FALSE        -- true if owner temporarily suspended access
+  is_paused   BOOLEAN DEFAULT FALSE,       -- true if owner temporarily suspended access
+  paused_remaining_seconds INTEGER         -- captures exact seconds left when paused
 );
 
 CREATE INDEX IF NOT EXISTS rooms_token_idx ON rooms(token);
