@@ -15,7 +15,8 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **🔥 Burn After Reading**: Share ultra-sensitive credentials or images using Burn-After-Reading links. The server instantly purges the file from the cloud and database the moment the recipient views it.
 - **⏱️ Self-Destruct Messages**: Snapchat-style ephemeral chat messages. Set a custom countdown timer (e.g. 5s, 10s, 1m). Once viewed by the recipient, the message automatically hollows out into a "Viewed" tombstone and is permanently purged from the database and cloud storage.
 - **🗂️ In-Browser Folder Zipping**: Drag and drop an entire folder onto the dashboard. GhostVault will recursively zip the folder locally in your browser and upload it securely as a single `.zip` asset.
-- **📝 Syntax Highlighted Code Sharing**: Paste raw JSON, Python, JS, or text directly. GhostVault detects code and shares it using a built-in pastebin viewer with beautiful syntax highlighting.
+- **📝 Markdown & Code Parsing**: Paste raw JSON, Python, JS, or use inline Markdown (`*bold*`, `_italics_`, `` `code` ``). GhostVault detects code and shares it using a built-in viewer with beautiful syntax highlighting.
+- **📥 Chat Export**: Instantly download your entire secure chat history as a cleanly formatted `.md` Markdown file before revoking a tunnel.
 - **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
 - **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
