@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import GhostLogo from '../components/GhostLogo';
-import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon, MessageSquare, Menu, X as CloseIcon } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Zap, Lock, Code, Mail, Terminal, Sun, Moon, MessageSquare, Menu, Timer, X as CloseIcon } from 'lucide-react';
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -129,12 +129,14 @@ export default function LandingPage() {
         </div>
 
         {/* Features Grid */}
-        <div id="features" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl mx-auto mt-24 px-4">
+        <div id="features" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto mt-24 px-4">
           {[
-            { icon: <ShieldAlert className="w-8 h-8 text-accent" />, title: 'Secure Asset Vault', desc: 'Retain complete history as the admin. Set assets to persist indefinitely, or configure them to self-destruct upon expiration.', color: 'accent' },
-            { icon: <Zap className="w-8 h-8 text-cyan-400" />, title: 'Real-time Tunnels', desc: 'Instantly sync clipboards, send data payloads, and live-chat via Socket.io.', color: 'cyan-400' },
-            { icon: <Lock className="w-8 h-8 text-amber-400" />, title: 'Zero Auth Guests', desc: 'Generate 4-char access tokens. Guests don\'t need accounts to collaborate.', color: 'amber-400' },
-            { icon: <MessageSquare className="w-8 h-8 text-purple-400" />, title: 'Premium Chat', desc: 'Voice notes, rich media players, PDF previews, emoji reactions — all built-in.', color: 'purple-400' },
+            { icon: <ShieldAlert className="w-8 h-8 text-accent" />, title: 'Secure Asset Vault', desc: 'Retain complete history as the admin. Set assets to persist indefinitely, or configure them to self-destruct upon expiration.' },
+            { icon: <Zap className="w-8 h-8 text-cyan-400" />, title: 'Real-time Tunnels', desc: 'Instantly sync clipboards, send data payloads, and live-chat via Socket.io.' },
+            { icon: <Lock className="w-8 h-8 text-amber-400" />, title: 'Zero Auth Guests', desc: 'Generate 4-char access tokens. Guests don\'t need accounts to collaborate.' },
+            { icon: <MessageSquare className="w-8 h-8 text-purple-400" />, title: 'Premium Chat', desc: 'Voice notes, rich media players, PDF previews, emoji reactions — all built-in.' },
+            { icon: <Timer className="w-8 h-8 text-red-400" />, title: 'Timer Auto-Reset', desc: 'Safety-first ephemeral messaging. Burn timers instantly reset to zero after each payload is delivered, preventing accidental leaks.' },
+            { icon: <Menu className="w-8 h-8 text-blue-400" />, title: 'In-Chat Command Menu', desc: 'Control your tunnels natively from within the chat view. Pause connections, revoke links, and pull up QR codes instantly.' },
           ].map((f, i) => (
             <div key={i} className="group p-6 bg-bgCard border border-borderBase rounded-sm transition-all duration-300 hover:border-borderActive hover:bg-bgHover hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20">
               <div className="mb-4">{f.icon}</div>

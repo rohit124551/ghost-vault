@@ -1,6 +1,6 @@
 # 👻 GhostVault | SecOps Console
 
-GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for maximum speed and privacy. Whether you're pasting a quick screenshot to share with a client or creating a temporary "dead-drop" room for sensitive documents, GhostVault handles it with style and real-time precision.
+Your personal screenshot vault and temporary file sharing terminal. Designed for maximum speed, security, and anonymity with secure chats and real-time tunnels.
 
 ![Theme Preview](https://img.shields.io/badge/Theme-Cyber_Midnight-6366f1?style=for-the-badge&logo=ghost)
 ![PWA Ready](https://img.shields.io/badge/PWA-Installable-success?style=for-the-badge&logo=pwa)
@@ -19,6 +19,8 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **📥 Chat Export**: Instantly download your entire secure chat history as a cleanly formatted `.md` Markdown file before revoking a tunnel.
 - **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
 - **⏸️ True Pause/Resume**: Temporarily suspend tunnel access with a single click. Pausing instantly kicks active guests, displays a custom 404 page, and physically freezes the tunnel's countdown timer in the database until resumed!
+- **⚡ Timer Auto-Reset**: Safety-first messaging! Burn timers automatically reset to zero after each ephemeral payload is delivered, preventing accidental leaks of future messages.
+- **📱 In-Chat Command Menu**: Kebab menu natively built into the chat header. Pause/resume tunnels, copy links, view QR codes, and edit node times without ever leaving the chat view!
 - **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
   - **In-Line Media Players**: Video and audio clips (`.mp4`, `.webm`, `.mp3`) are instantly playable inside chat bubbles.
