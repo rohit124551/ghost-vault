@@ -18,6 +18,7 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **📝 Markdown & Code Parsing**: Paste raw JSON, Python, JS, or use inline Markdown (`*bold*`, `_italics_`, `` `code` ``). GhostVault detects code and shares it using a built-in viewer with beautiful syntax highlighting.
 - **📥 Chat Export**: Instantly download your entire secure chat history as a cleanly formatted `.md` Markdown file before revoking a tunnel.
 - **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
+- **⏸️ True Pause/Resume**: Temporarily suspend tunnel access with a single click. Pausing instantly kicks active guests, displays a custom 404 page, and physically freezes the tunnel's countdown timer in the database until resumed!
 - **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
   - **In-Line Media Players**: Video and audio clips (`.mp4`, `.webm`, `.mp3`) are instantly playable inside chat bubbles.

@@ -149,11 +149,11 @@ export default function GuestRoomPage() {
     axios.get(`${API_URL}/api/rooms/${token}/valid`)
       .then(async res => {
         if (!res.data.valid) {
-          return navigate('/404', { replace: true });
+          return navigate('/404', { replace: true, state: { reason: 'revoked', token } });
         }
         
         if (res.data.isPaused) {
-          return navigate('/404', { replace: true, state: { reason: 'paused' } });
+          return navigate('/404', { replace: true, state: { reason: 'paused', token } });
         }
         
         setStatus('valid');
@@ -168,7 +168,7 @@ export default function GuestRoomPage() {
         } catch { /* ignore */ }
         finally { setChatLoad(false); }
       })
-      .catch(() => navigate('/404', { replace: true }));
+      .catch(() => navigate('/404', { replace: true, state: { reason: 'revoked', token } }));
   }, [token, navigate]);
 
   // Real-time expiry timer
@@ -182,7 +182,7 @@ export default function GuestRoomPage() {
       }
       const ms = new Date(expiresAt).getTime() - Date.now();
       if (ms <= 0) {
-        navigate('/404', { replace: true });
+        navigate('/404', { replace: true, state: { reason: 'revoked', token } });
         return;
       }
       const s = Math.floor(ms / 1000);
@@ -225,12 +225,12 @@ export default function GuestRoomPage() {
     s.on('room_updated', ({ expiresAt: newExpiry, note: newNote, isActive, isPaused }) => {
       if (newExpiry !== undefined) setExpiresAt(newExpiry);
       if (newNote !== undefined) setNote(newNote);
-      if (isActive === false) navigate('/404', { replace: true });
-      if (isPaused === true) navigate('/404', { replace: true, state: { reason: 'paused' } });
+      if (isActive === false) navigate('/404', { replace: true, state: { reason: 'revoked', token } });
+      if (isPaused === true) navigate('/404', { replace: true, state: { reason: 'paused', token } });
     });
 
     s.on('room_revoked', () => {
-      navigate('/404', { replace: true });
+      navigate('/404', { replace: true, state: { reason: 'revoked', token } });
     });
 
     s.on('message_viewed', ({ id, viewed_at, roomToken }) => {
