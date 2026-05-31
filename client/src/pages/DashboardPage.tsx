@@ -15,7 +15,7 @@ import {
   Plus, QrCode, X, Check, Timer, Eye, Info,
   File, Image as ImageIcon, ChevronLeft, ChevronRight, ChevronDown, HardDriveDownload, MessageSquare, Search,
   Terminal, ShieldAlert, Activity, Database, Server, FolderLock, Menu, LogOut, Code, Cpu, Sun, Moon, Ghost, Home,
-  Bug, Pencil, Zap, RefreshCw, MailOpen
+  Bug, Pencil, Zap, RefreshCw, MailOpen, Pause, Play
 } from 'lucide-react';
 import GhostLogo from '../components/GhostLogo';
 import { copyToClipboard } from '../utils/clipboard';
@@ -689,7 +689,7 @@ function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdit, isSe
   );
 }
 
-function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdit, isSelected }: any) {
+function CompactRoomRow({ room, onQR, onRevoke, onTogglePause, onPermanentDelete, onChat, onEdit, isSelected }: any) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const active = isRoomValid(room);
 
@@ -699,7 +699,7 @@ function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdi
       onClick={onChat}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-success animate-pulse' : 'bg-textGhost'}`} />
+        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-success animate-pulse' : 'bg-amber-500'}`} />
         <div className="flex flex-col min-w-0">
           <span className={`font-mono text-xs font-bold tracking-widest truncate ${isSelected ? 'text-accent' : 'text-textPrimary'}`}>{room.token}</span>
           {room.note && <span className="text-[9px] font-mono text-textGhost truncate uppercase">{room.note}</span>}
@@ -710,8 +710,13 @@ function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdi
         <button className="p-1.5 text-textGhost hover:text-purple-400 transition-colors" onClick={(e) => { e.stopPropagation(); onEdit?.(); }} title="Edit"><Pencil size={11} /></button>
         {active && (
           <>
-            <button className="p-1.5 text-textGhost hover:text-textPrimary transition-colors" onClick={(e) => { e.stopPropagation(); onQR(); }}><QrCode size={12} /></button>
-            <button className="p-1.5 text-textGhost hover:text-amber-500 transition-colors" onClick={(e) => { e.stopPropagation(); onRevoke(); }}><X size={12} /></button>
+            <button className="p-1.5 text-textGhost hover:text-textPrimary transition-colors" onClick={(e) => { e.stopPropagation(); onQR(); }} title="QR Code"><QrCode size={12} /></button>
+            {room.is_paused ? (
+              <button className="p-1.5 text-textGhost hover:text-success transition-colors" onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }} title="Resume Tunnel"><Play size={12} /></button>
+            ) : (
+              <button className="p-1.5 text-textGhost hover:text-amber-500 transition-colors" onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }} title="Pause Tunnel"><Pause size={12} /></button>
+            )}
+            <button className="p-1.5 text-textGhost hover:text-danger transition-colors" onClick={(e) => { e.stopPropagation(); onRevoke?.(); }} title="Kill Tunnel"><X size={12} /></button>
           </>
         )}
         <button
@@ -721,6 +726,7 @@ function CompactRoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdi
             if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 2000); }
             else onPermanentDelete();
           }}
+          title="Delete Permanently"
         >
           <Trash2 size={12} />
         </button>
@@ -1062,13 +1068,38 @@ export default function DashboardPage() {
     catch { toast.error('Purge failed'); }
   };
 
+  const fetchRooms = async () => {
+    try {
+      const res = await api.get('/api/rooms');
+      setRooms(res.data || []);
+      setChatRoom(prev => {
+        if (!prev) return null;
+        const updated = (res.data || []).find((r: any) => r.token === prev.token);
+        return updated || prev;
+      });
+    } catch { /* ignore */ }
+  };
+
   const handleRevoke = async (token: string) => {
     try {
       await api.delete(`/api/rooms/${token}`);
-      setRooms(prev => prev.map(r => r.token === token ? { ...r, is_active: false } : r));
       if (qrRoom?.token === token) setQrRoom(null);
-      toast.success('Tunnel closed');
-    } catch { toast.error('Close failed'); }
+      if (chatRoom?.token === token) setChatRoom(null);
+      toast.success('Tunnel killed');
+      fetchRooms();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to kill tunnel');
+    }
+  };
+
+  const handleTogglePause = async (token: string, currentStatus: boolean) => {
+    try {
+      await api.patch(`/api/rooms/${token}`, { isPaused: !currentStatus });
+      toast.success(currentStatus ? 'Tunnel resumed' : 'Tunnel paused');
+      fetchRooms();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to update tunnel');
+    }
   };
 
   const handlePermanentDelete = async (token: string) => {
@@ -1104,7 +1135,9 @@ export default function DashboardPage() {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
       });
-    } catch { toast.error('TX failed'); }
+    } catch (err: any) { 
+      toast.error(err.response?.status === 413 ? 'Payload too large' : (err.response?.data?.error || 'TX failed')); 
+    }
   };
 
   const handleOwnerSendFile = async (file: File, burn_after_seconds: number | null = null) => {
@@ -1122,7 +1155,9 @@ export default function DashboardPage() {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
       });
-    } catch { toast.error('TX failed'); }
+    } catch (err: any) { 
+      toast.error(err.response?.status === 413 ? 'File too large (Max size: 50MB)' : (err.response?.data?.error || 'TX failed'), { duration: 5000 }); 
+    }
   };
 
   const handleDeleteMessage = async (id: string) => {
@@ -1434,6 +1469,7 @@ export default function DashboardPage() {
                       room={r}
                       onQR={() => setQrRoom({ token: r.token, expiresAt: r.expires_at, view_once: r.view_once })}
                       onRevoke={() => handleRevoke(r.token)}
+                      onTogglePause={() => handleTogglePause(r.token, r.is_paused)}
                       onPermanentDelete={() => handlePermanentDelete(r.token)}
                       onChat={() => openChat(r)}
                       onEdit={() => setEditRoom(r)}
@@ -1461,6 +1497,7 @@ export default function DashboardPage() {
                         <CompactRoomRow
                           key={r.id}
                           room={r}
+                          onTogglePause={() => handleTogglePause(r.token, isRoomValid(r))}
                           onPermanentDelete={() => handlePermanentDelete(r.token)}
                           onChat={() => openChat(r)}
                           onEdit={() => setEditRoom(r)}
@@ -1495,9 +1532,15 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-cyan-400 font-bold tracking-wider text-sm truncate">{chatRoom.token}</span>
                           {isRoomValid(chatRoom) ? (
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-bgBase bg-cyan-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
-                              <span className="w-1 h-1 rounded-full bg-bgBase animate-pulse" /> LIVE
-                            </span>
+                            chatRoom.is_paused ? (
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-sm flex items-center gap-1 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                                PAUSED
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-bgBase bg-cyan-400 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
+                                <span className="w-1 h-1 rounded-full bg-bgBase animate-pulse" /> LIVE
+                              </span>
+                            )
                           ) : (
                             <span className="text-[9px] font-bold uppercase tracking-widest text-textGhost bg-bgCard border border-borderBase px-1.5 py-0.5 rounded-sm">
                               KILLED
