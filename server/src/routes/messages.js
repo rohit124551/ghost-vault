@@ -12,11 +12,11 @@ const { roomFileUpload, deleteFromCloudinary } = require('../lib/cloudinary');
 async function getRoomByToken(token) {
   const { data, error } = await supabase
     .from('rooms')
-    .select('id, is_active, expires_at')
+    .select('id, is_active, is_paused, expires_at')
     .eq('token', token)
     .single();
   if (error || !data) return null;
-  if (!data.is_active) return null;
+  if (!data.is_active || data.is_paused) return null;
   if (data.expires_at && new Date(data.expires_at) < new Date()) return null;
   return data;
 }
@@ -29,7 +29,7 @@ router.get('/', async (req, res, next) => {
     // 1. Find the room regardless of status
     const { data: room, error: roomErr } = await supabase
       .from('rooms')
-      .select('id, is_active, expires_at')
+      .select('id, is_active, is_paused, expires_at')
       .eq('token', token)
       .single();
 

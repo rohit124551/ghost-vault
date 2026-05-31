@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS rooms (
   expires_at  TIMESTAMPTZ,                 -- nullable = no auto-expire
   view_once   BOOLEAN DEFAULT FALSE,       -- auto-revoke after first file received
   note        TEXT,                        -- optional purpose/note for the room
-  is_active   BOOLEAN DEFAULT TRUE
+  is_active   BOOLEAN DEFAULT TRUE,
+  is_paused   BOOLEAN DEFAULT FALSE        -- true if owner temporarily suspended access
 );
 
 CREATE INDEX IF NOT EXISTS rooms_token_idx ON rooms(token);

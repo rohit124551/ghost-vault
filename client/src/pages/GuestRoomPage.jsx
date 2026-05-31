@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Sun, Moon, Timer, Bug, Send, X, Mail, Infinity } from 'lucide-react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import ChatWindow from '../components/ChatWindow';
 import GhostLogo from '../components/GhostLogo';
 import './GuestRoomPage.css';
@@ -151,7 +152,11 @@ export default function GuestRoomPage() {
           return navigate('/404', { replace: true });
         }
         
-        setStatus('valid');
+        if (res.data.isPaused) {
+          setStatus('paused');
+        } else {
+          setStatus('valid');
+        }
         setExpiresAt(res.data.expiresAt);
         setNote(res.data.note);
 
@@ -217,10 +222,12 @@ export default function GuestRoomPage() {
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions } : m));
     });
 
-    s.on('room_updated', ({ expiresAt: newExpiry, note: newNote, isActive }) => {
+    s.on('room_updated', ({ expiresAt: newExpiry, note: newNote, isActive, isPaused }) => {
       if (newExpiry !== undefined) setExpiresAt(newExpiry);
       if (newNote !== undefined) setNote(newNote);
       if (isActive === false) navigate('/404', { replace: true });
+      if (isPaused === true) setStatus('paused');
+      if (isPaused === false) setStatus('valid');
     });
 
     s.on('room_revoked', () => {
@@ -277,7 +284,9 @@ export default function GuestRoomPage() {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
       });
-    } catch { /* silently fail */ }
+    } catch (err) {
+      toast.error(err.response?.status === 413 ? 'File too large (Max size: 50MB)' : 'Failed to send message', { duration: 5000 });
+    }
   };
 
   const handleReact = async (msgId, emoji, forceRemove) => {
@@ -347,10 +356,16 @@ export default function GuestRoomPage() {
               <span className="text-[9px] font-mono text-textSecondary uppercase tracking-widest hidden sm:inline">Room</span>
               <span className="text-[10px] font-mono text-cyan-400 font-bold tracking-widest">{token}</span>
             </div>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
-              <span className="hidden sm:inline">Live</span>
-            </div>
+            {status === 'paused' ? (
+              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500 font-mono uppercase bg-amber-500/10 px-1.5 py-0.5 rounded-sm border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                <span className="hidden sm:inline">Paused</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
+                <span className="hidden sm:inline">Live</span>
+              </div>
+            )}
             {/* Bug report — lives in header, always accessible */}
             <button
               className="w-7 h-7 flex items-center justify-center rounded-sm border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-all"

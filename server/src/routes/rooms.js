@@ -17,7 +17,7 @@ router.get('/:token/valid', async (req, res, next) => {
     const { token } = req.params;
     const { data: room, error } = await supabase
       .from('rooms')
-      .select('id, token, expires_at, is_active, view_once, note')
+      .select('id, token, expires_at, is_active, is_paused, view_once, note')
       .eq('token', token)
       .single();
 
@@ -39,6 +39,7 @@ router.get('/:token/valid', async (req, res, next) => {
       expiresAt: room.expires_at,
       viewOnce: room.view_once,
       note: room.note,
+      isPaused: room.is_paused,
     });
   } catch (err) {
     next(err);
@@ -104,7 +105,7 @@ router.get('/', requireOwner, async (req, res, next) => {
     const { data, error } = await supabase
       .from('rooms')
       .select(`
-        id, token, created_at, expires_at, view_once, is_active, note,
+        id, token, created_at, expires_at, view_once, is_active, is_paused, note,
         uploads(id, file_name, cloudinary_url, created_at, file_type)
       `)
       .order('created_at', { ascending: false });
@@ -147,15 +148,15 @@ router.delete('/:token', requireOwner, async (req, res, next) => {
 });
 
 // PATCH /api/rooms/:token — edit room settings post-creation (owner only)
-// Supports: extending TTL (addMinutes | newExpiresAt), changing note, reactivating
+// Supports: extending TTL (addMinutes | newExpiresAt), changing note, reactivating, pausing
 router.patch('/:token', requireOwner, async (req, res, next) => {
   try {
     const { token } = req.params;
-    const { note, addMinutes, newExpiresAt, isActive, clearExpiry } = req.body;
+    const { note, addMinutes, newExpiresAt, isActive, clearExpiry, isPaused } = req.body;
 
     const { data: room, error: fetchErr } = await supabase
       .from('rooms')
-      .select('id, expires_at, is_active, note')
+      .select('id, expires_at, is_active, is_paused, note')
       .eq('token', token)
       .single();
 
@@ -168,6 +169,9 @@ router.patch('/:token', requireOwner, async (req, res, next) => {
 
     // Handle active toggle (reactivation)
     if (isActive !== undefined) updates.is_active = Boolean(isActive);
+
+    // Handle pause toggle
+    if (isPaused !== undefined) updates.is_paused = Boolean(isPaused);
 
     // Handle expiry extension: add minutes to CURRENT expiry (or from now)
     if (addMinutes && !isNaN(Number(addMinutes))) {
@@ -200,6 +204,7 @@ router.patch('/:token', requireOwner, async (req, res, next) => {
       expiresAt: data.expires_at,
       note: data.note,
       isActive: data.is_active,
+      isPaused: data.is_paused,
     });
 
     res.json({ success: true, room: data });
