@@ -149,6 +149,9 @@ export default function GuestRoomPage() {
     axios.get(`${API_URL}/api/rooms/${token}/valid`)
       .then(async res => {
         if (!res.data.valid) {
+          return navigate('/404', { replace: true });
+        }
+        
         if (res.data.isPaused) {
           return navigate('/404', { replace: true, state: { reason: 'paused' } });
         }
