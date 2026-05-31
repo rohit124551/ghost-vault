@@ -15,7 +15,7 @@ import {
   Plus, QrCode, X, Check, Timer, Eye, Info,
   File, Image as ImageIcon, ChevronLeft, ChevronRight, ChevronDown, HardDriveDownload, MessageSquare, Search,
   Terminal, ShieldAlert, Activity, Database, Server, FolderLock, Menu, LogOut, Code, Cpu, Sun, Moon, Ghost, Home,
-  Bug, Pencil, Zap, RefreshCw, MailOpen, Pause, Play
+  Bug, Pencil, Zap, RefreshCw, MailOpen, Pause, Play, MoreVertical
 } from 'lucide-react';
 import GhostLogo from '../components/GhostLogo';
 import { copyToClipboard } from '../utils/clipboard';
@@ -769,6 +769,8 @@ export default function DashboardPage() {
   const { socket, joinRoom } = useSocket();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [showChatMenu, setShowChatMenu] = useState(false);
+  const chatMenuRef = useRef<HTMLDivElement>(null);
 
 
   const [showHistory, setShowHistory] = useState(false);
@@ -784,6 +786,16 @@ export default function DashboardPage() {
         if (dir) setDownloadDir(dir);
       });
     }
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (chatMenuRef.current && !chatMenuRef.current.contains(event.target as Node)) {
+        setShowChatMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSetDownloadDir = async () => {
@@ -1522,7 +1534,7 @@ export default function DashboardPage() {
             <div className={`flex-1 flex-col h-full bg-bgBase relative z-20 min-w-0 overflow-hidden ${!chatRoom ? 'hidden md:flex' : 'flex'}`}>
               {chatRoom ? (
                 <>
-                  <div className="p-4 border-b border-borderBase flex items-center justify-between bg-bgCard/80 backdrop-blur-md overflow-hidden">
+                  <div className="p-4 border-b border-borderBase flex items-center justify-between bg-bgCard/80 backdrop-blur-md z-30">
                     <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
                       <button className="md:hidden p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-md transition-colors" onClick={closeChat}>
                         <ChevronLeft size={20} />
@@ -1569,6 +1581,69 @@ export default function DashboardPage() {
                       <button className="p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-md transition-colors" onClick={() => setShowBugModal(true)} title="Report a Bug">
                         <Bug size={18} />
                       </button>
+
+                      {/* Dropdown Menu */}
+                      <div className="relative" ref={chatMenuRef}>
+                        <button 
+                          onClick={() => setShowChatMenu(!showChatMenu)}
+                          className={`p-2 rounded-md transition-colors ${showChatMenu ? 'bg-bgHover text-textPrimary' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover'}`}
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+                        
+                        <AnimatePresence>
+                          {showChatMenu && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute right-0 top-full mt-2 w-48 bg-bgCard border border-borderBase rounded-md shadow-2xl overflow-hidden z-50 flex flex-col p-1"
+                            >
+                              <button
+                                onClick={() => { copyToClipboard(`${BASE_URL}/r/${chatRoom.token}`); setShowChatMenu(false); }}
+                                className="w-full text-left px-3 py-2 text-xs font-mono font-bold uppercase tracking-widest text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
+                              >
+                                <Copy size={14} /> Copy Link
+                              </button>
+                              
+                              <button
+                                onClick={() => { setQrRoom({ token: chatRoom.token, expiresAt: chatRoom.expires_at, viewOnce: chatRoom.view_once }); setShowChatMenu(false); }}
+                                className="w-full text-left px-3 py-2 text-xs font-mono font-bold uppercase tracking-widest text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
+                              >
+                                <QrCode size={14} /> View QR
+                              </button>
+                              
+                              <button
+                                onClick={() => { setEditRoom(chatRoom); setShowChatMenu(false); }}
+                                className="w-full text-left px-3 py-2 text-xs font-mono font-bold uppercase tracking-widest text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
+                              >
+                                <Pencil size={14} /> Edit Room
+                              </button>
+
+                              {isRoomValid(chatRoom) && (
+                                <button
+                                  onClick={() => { handleTogglePause(chatRoom.token, !chatRoom.is_paused); setShowChatMenu(false); }}
+                                  className={`w-full text-left px-3 py-2 text-xs font-mono font-bold uppercase tracking-widest hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors ${chatRoom.is_paused ? 'text-cyan-400 hover:text-cyan-300' : 'text-amber-500 hover:text-amber-400'}`}
+                                >
+                                  {chatRoom.is_paused ? <Play size={14} /> : <Pause size={14} />}
+                                  {chatRoom.is_paused ? 'Resume' : 'Pause'}
+                                </button>
+                              )}
+
+                              <div className="h-px bg-borderBase my-1 mx-2" />
+
+                              <button
+                                onClick={() => { handleRevoke(chatRoom.token); setShowChatMenu(false); closeChat(); }}
+                                className="w-full text-left px-3 py-2 text-xs font-mono font-bold uppercase tracking-widest text-danger hover:bg-danger/10 rounded-sm flex items-center gap-2 transition-colors"
+                              >
+                                <X size={14} /> Kill Tunnel
+                              </button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       <button className="hidden md:flex p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover border border-transparent hover:border-borderBase rounded-md transition-colors" onClick={closeChat}>
                         <X size={18} />
                       </button>
