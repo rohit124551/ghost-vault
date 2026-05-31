@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useServerHealth } from './hooks/useServerHealth';
 import ServerWakeUp from './components/ServerWakeUp';
 import Sidebar from './components/Sidebar';
+import ShortcutsModal from './components/ShortcutsModal';
 import LoginPage from './pages/LoginPage';
 import AuthCallback from './pages/AuthCallback';
 import DashboardPage from './pages/DashboardPage';
@@ -93,6 +94,7 @@ export default function App() {
   return (
     <>
       <PanicMode />
+      <ShortcutsModal />
       {!isOnline && <OfflineOverlay />}
       <InstallPrompt />
       
