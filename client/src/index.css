@@ -659,3 +659,35 @@ input, textarea, select { font-family: inherit; }
   z-index: 10;
   opacity: 0.5;
 }
+
+/* ══════════════════════════════════════════════
+   PANIC MODE
+   ══════════════════════════════════════════════ */
+body.panic-mode #root > *:not(.panic-dot) {
+  display: none !important;
+}
+
+body.panic-mode {
+  background: #000 !important;
+}
+
+.panic-dot {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  z-index: 999999;
+  display: none;
+}
+
+body.panic-mode .panic-dot {
+  display: block;
+}
+
+.panic-dot:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
