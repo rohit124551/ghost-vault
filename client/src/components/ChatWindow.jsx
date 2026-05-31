@@ -17,9 +17,35 @@ function getAvatarColor(seed) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-function renderMessageText(text) {
+function parseInlineMarkdown(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  
+  return text.split(urlRegex).map((part1, i1) => {
+    if (urlRegex.test(part1)) {
+      return <a key={`url-${i1}`} href={part1} target="_blank" rel="noreferrer" className="chat-link">{part1}</a>;
+    }
+    
+    // Inline code
+    const codeRegex = /`([^`]+)`/g;
+    return part1.split(codeRegex).map((part2, i2) => {
+      if (i2 % 2 === 1) return <code key={`code-${i1}-${i2}`} className="chat-inline-code">{part2}</code>;
+      
+      // Bold (handles **bold** or *bold*)
+      const boldRegex = /\*{1,2}([^*]+)\*{1,2}/g;
+      return part2.split(boldRegex).map((part3, i3) => {
+        if (i3 % 2 === 1) return <strong key={`bold-${i1}-${i2}-${i3}`}>{part3}</strong>;
+        
+        // Italics
+        const italicRegex = /_([^_]+)_/g;
+        return part3.split(italicRegex).map((part4, i4) => {
+          if (i4 % 2 === 1) return <em key={`italic-${i1}-${i2}-${i3}-${i4}`}>{part4}</em>;
+          return part4;
+        });
+      });
+    });
+  });
+}
+
+function renderMessageText(text) {
   // Check for code blocks ```language ... ```
   const codeBlockRegex = /```([\w-]*)\n([\s\S]*?)```/g;
   
@@ -28,11 +54,11 @@ function renderMessageText(text) {
   let match;
 
   while ((match = codeBlockRegex.exec(text)) !== null) {
-    // Add preceding text (linkified)
+    // Add preceding text (parsed for inline markdown)
     if (match.index > lastIndex) {
       const preceding = text.slice(lastIndex, match.index);
       elements.push(
-        <span key={`text-${lastIndex}`}>{linkify(preceding, urlRegex)}</span>
+        <span key={`text-${lastIndex}`}>{parseInlineMarkdown(preceding)}</span>
       );
     }
     
@@ -64,20 +90,11 @@ function renderMessageText(text) {
   // Add remaining text
   if (lastIndex < text.length) {
     elements.push(
-      <span key={`text-${lastIndex}`}>{linkify(text.slice(lastIndex), urlRegex)}</span>
+      <span key={`text-${lastIndex}`}>{parseInlineMarkdown(text.slice(lastIndex))}</span>
     );
   }
 
   return elements;
-}
-
-function linkify(text, urlRegex) {
-  const parts = text.split(urlRegex);
-  return parts.map((part, i) =>
-    urlRegex.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noreferrer" className="chat-link">{part}</a>
-      : part
-  );
 }
 
 // Helper to get lower res thumbnail

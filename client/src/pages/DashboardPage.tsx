@@ -1167,6 +1167,38 @@ export default function DashboardPage() {
     } catch {}
   };
 
+  const handleExportChat = () => {
+    if (!chatRoom || chatMessages.length === 0) {
+      toast('No messages to export', { icon: 'ℹ️' });
+      return;
+    }
+
+    let text = `# GhostVault Chat Export: Room ${chatRoom.token}\n`;
+    text += `Generated: ${new Date().toLocaleString()}\n\n`;
+    
+    chatMessages.forEach((m: any) => {
+      const time = new Date(m.created_at).toLocaleString();
+      const sender = m.sender === 'owner' ? 'Owner' : 'Guest';
+      
+      if (m.type === 'text') {
+        text += `[${time}] ${sender}: ${m.content}\n`;
+      } else if (m.type === 'image' || m.type === 'file') {
+        text += `[${time}] ${sender}: [${m.type.toUpperCase()}] ${m.file_name}\n`;
+      } else if (m.type === 'burned') {
+        text += `[${time}] ${sender}: [BURNED MESSAGE]\n`;
+      }
+    });
+
+    const blob = new Blob([text], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `GhostVault_Chat_${chatRoom.token}_${new Date().toISOString().split('T')[0]}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Chat exported successfully');
+  };
+
   const handleRoomUpdate = (updatedRoom: any) => {
     setRooms(prev => prev.map(r => r.token === updatedRoom.token ? { ...r, ...updatedRoom } : r));
     if (chatRoom?.token === updatedRoom.token) {
@@ -1476,6 +1508,9 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-md transition-colors" onClick={handleExportChat} title="Export Chat Log">
+                        <Download size={18} />
+                      </button>
                       <button className="p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-md transition-colors" onClick={() => setShowBugModal(true)} title="Report a Bug">
                         <Bug size={18} />
                       </button>
