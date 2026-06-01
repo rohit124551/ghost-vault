@@ -311,7 +311,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
       >
         {!isBurned && !isBlurred && (
           <button 
-            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 bg-black/20 hover:bg-black/40 text-white rounded-full transition-opacity z-10 backdrop-blur-sm"
+            className="absolute top-1 right-1 opacity-100 md:opacity-0 group-hover:opacity-100 p-1 bg-black/20 hover:bg-black/40 text-white rounded-full transition-opacity z-10 backdrop-blur-sm"
             onClick={(e) => { 
               e.stopPropagation(); 
               const rect = e.currentTarget.getBoundingClientRect();
@@ -326,97 +326,69 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
         )}
 
         {menuOpen && (
-          <>
-            {/* Mobile Overlay */}
-            <div 
-              className="fixed inset-0 bg-black/50 z-[90] md:hidden backdrop-blur-sm" 
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); }} 
-            />
+          <div 
+            ref={menuRef} 
+            className={`
+              absolute z-50 min-w-[140px] rounded-xl
+              ${menuPosition === 'top' ? 'bottom-full mb-2' : 'top-6'} 
+              ${isMe ? 'right-2' : 'left-2'} 
+              bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] 
+              flex flex-col p-1
+            `}
+          >
+            {(msg.type === 'image' || msg.type === 'file') && (
+              <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={(e) => { setMenuOpen(false); setShowEmojiPicker(false); handleDownload(e); }}>
+                <Download size={15} className="text-textGhost" /> Download
+              </button>
+            )}
+            {onReply && (
+              <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); onReply(msg); }}>
+                <Reply size={15} className="text-textGhost" /> Reply
+              </button>
+            )}
+            <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); handleCopy(); }}>
+              <Copy size={15} className="text-textGhost" /> Copy
+            </button>
             
-            {/* Menu Container: Bottom Sheet on Mobile, Dropdown on Desktop */}
-            <div 
-              ref={menuRef} 
-              className={`
-                fixed inset-x-0 bottom-0 pb-[env(safe-area-inset-bottom)] rounded-t-3xl w-full z-[100]
-                md:absolute md:w-auto md:min-w-[140px] md:rounded-xl md:z-50 md:inset-auto md:pb-0
-                ${menuPosition === 'top' ? 'md:bottom-full md:mb-2' : 'md:top-6'} 
-                ${isMe ? 'md:right-2 md:left-auto' : 'md:left-2 md:right-auto'} 
-                bg-bgCard border-t md:border border-border shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-[0_8px_30px_rgba(0,0,0,0.3)] 
-                flex flex-col p-4 md:p-1
-              `}
+            <button 
+              className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowEmojiPicker(!showEmojiPicker);
+              }}
             >
-              {/* Mobile Drag Pill */}
-              <div className="w-12 h-1.5 bg-borderActive rounded-full mx-auto mb-5 md:hidden" />
+              <SmilePlus size={15} className="text-textGhost" /> React
+              {showEmojiPicker && (
+                <div className={`absolute ${menuPosition === 'top' ? 'bottom-0' : 'top-0'} ${isMe ? 'right-[105%]' : 'left-[105%]'} bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] rounded-xl p-1.5 flex gap-1 z-50`}>
+                  {QUICK_EMOJIS.map(e => (
+                    <span key={e} className="cursor-pointer hover:bg-bgHover p-1.5 rounded-lg text-lg transition-transform hover:scale-110" onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}>{e}</span>
+                  ))}
+                </div>
+              )}
+            </button>
 
-              {/* Mobile Emoji Row (Always visible) */}
-              <div className="flex justify-center gap-3 mb-4 px-2 overflow-x-auto md:hidden">
-                {QUICK_EMOJIS.map(e => (
-                  <button 
-                    key={e} 
-                    className="text-3xl p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors" 
-                    onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-
-              {/* Desktop Emoji Toggle Button */}
-              <button 
-                className="hidden md:flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors relative"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowEmojiPicker(!showEmojiPicker);
-                }}
-              >
-                <SmilePlus size={15} className="text-textGhost" /> React
-                {showEmojiPicker && (
-                  <div className={`absolute ${menuPosition === 'top' ? 'bottom-0' : 'top-0'} ${isMe ? 'right-[105%]' : 'left-[105%]'} bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] rounded-xl p-1.5 flex gap-1 z-50`}>
-                    {QUICK_EMOJIS.map(e => (
-                      <span key={e} className="cursor-pointer hover:bg-bgHover p-1.5 rounded-lg text-lg transition-transform hover:scale-110" onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}>{e}</span>
-                    ))}
-                  </div>
-                )}
-              </button>
-
-              {/* Other Actions */}
-              {(msg.type === 'image' || msg.type === 'file') && (
-                <button className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-bgHover rounded-xl md:rounded-lg text-base md:text-sm text-textPrimary text-left transition-colors" onClick={(e) => { setMenuOpen(false); setShowEmojiPicker(false); handleDownload(e); }}>
-                  <Download size={18} className="text-textGhost md:w-[15px]" /> Download
+            {canDelete && myRole === 'owner' && (
+              <>
+                <div className="h-[1px] bg-border my-1 mx-2" />
+                <button 
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-danger/10 rounded-lg text-sm text-danger text-left transition-colors" 
+                  onClick={(e) => { 
+                    e.stopPropagation();
+                    if (!confirmDelete) {
+                      setConfirmDelete(true);
+                      setTimeout(() => setConfirmDelete(false), 2000);
+                    } else {
+                      setMenuOpen(false);
+                      setShowEmojiPicker(false);
+                      handleDelete(e);
+                    }
+                  }}
+                >
+                  <X size={15} /> {confirmDelete ? 'Confirm?' : 'Delete'}
                 </button>
-              )}
-              {onReply && (
-                <button className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-bgHover rounded-xl md:rounded-lg text-base md:text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); onReply(msg); }}>
-                  <Reply size={18} className="text-textGhost md:w-[15px]" /> Reply
-                </button>
-              )}
-              <button className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-bgHover rounded-xl md:rounded-lg text-base md:text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); handleCopy(); }}>
-                <Copy size={18} className="text-textGhost md:w-[15px]" /> Copy
-              </button>
-              
-              {canDelete && myRole === 'owner' && (
-                <>
-                  <div className="h-[1px] bg-border my-2 md:my-1 mx-4 md:mx-2" />
-                  <button 
-                    className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-danger/10 rounded-xl md:rounded-lg text-base md:text-sm text-danger text-left transition-colors" 
-                    onClick={(e) => { 
-                      e.stopPropagation();
-                      if (!confirmDelete) {
-                        setConfirmDelete(true);
-                        setTimeout(() => setConfirmDelete(false), 2000);
-                      } else {
-                        setMenuOpen(false);
-                        setShowEmojiPicker(false);
-                        handleDelete(e);
-                      }
-                    }}
-                  >
-                    <X size={18} className="md:w-[15px]" /> {confirmDelete ? 'Confirm?' : 'Delete'}
-                  </button>
-                </>
-              )}
-            </div>
-          </>
+              </>
+            )}
+          </div>
         )}
         {/* Render Quoted Reply */}
         {msg.reply_to_id && messages && (

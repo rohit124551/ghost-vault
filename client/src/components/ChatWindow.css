@@ -146,6 +146,24 @@
   .bubble-action { padding: 5px; }
   .bubble-file { min-width: unset; width: 100%; padding: 10px 12px; }
   .chat-bar { padding: 12px 16px; }
+  
+  @keyframes slideUpSheet {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .mobile-bottom-sheet {
+    animation: slideUpSheet 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+}
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 
