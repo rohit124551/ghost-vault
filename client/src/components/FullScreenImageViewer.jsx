@@ -471,11 +471,29 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
         {/* PDF */}
         {fileType === 'pdf' && (
           <div className="fs-pdf-wrapper" onClick={e => e.stopPropagation()}>
-            <iframe
-              src={`${imageUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitH`}
-              title={imageName}
-              className="fs-viewer-pdf"
-            />
+            {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? (
+              <div className="fs-pdf-mobile-fallback flex flex-col items-center justify-center h-full p-8 text-center text-white bg-black/50 backdrop-blur-md rounded-2xl">
+                <FileText size={48} className="mb-4 opacity-50 text-red-500" />
+                <h3 className="text-xl font-bold mb-2">PDF Viewer Unavailable</h3>
+                <p className="mb-6 opacity-70 max-w-[300px] text-sm leading-relaxed">
+                  Full-screen PDF preview is not supported on your mobile browser. Please open the file in a new tab to view it.
+                </p>
+                <a 
+                  href={imageUrl} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                >
+                  <ExternalLink size={18} /> Open Document
+                </a>
+              </div>
+            ) : (
+              <iframe
+                src={`${imageUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitH`}
+                title={imageName}
+                className="fs-viewer-pdf"
+              />
+            )}
           </div>
         )}
       </div>

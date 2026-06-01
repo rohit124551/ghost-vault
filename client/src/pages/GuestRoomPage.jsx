@@ -249,13 +249,14 @@ export default function GuestRoomPage() {
   }, [token, navigate]);
 
   // Guest sends text
-  const handleSendText = async (text, burn_after_seconds = null) => {
+  const handleSendText = async (text, burn_after_seconds = null, reply_to_id = null) => {
     if (status !== 'valid') return;
     try {
       const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/text`, {
         content: text,
         sender: 'guest',
-        burn_after_seconds
+        burn_after_seconds,
+        reply_to_id
       });
       setMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;
@@ -265,7 +266,7 @@ export default function GuestRoomPage() {
   };
 
   // Guest sends file
-  const handleSendFile = async (file, burn_after_seconds = null) => {
+  const handleSendFile = async (file, burn_after_seconds = null, reply_to_id = null) => {
     if (status !== 'valid') return;
     try {
       const formData = new FormData();
@@ -274,6 +275,9 @@ export default function GuestRoomPage() {
       formData.append('fileName', file.name);
       if (burn_after_seconds) {
         formData.append('burn_after_seconds', burn_after_seconds);
+      }
+      if (reply_to_id) {
+        formData.append('reply_to_id', reply_to_id);
       }
       
       const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, formData, {

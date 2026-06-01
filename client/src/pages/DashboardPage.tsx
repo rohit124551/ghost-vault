@@ -1147,10 +1147,10 @@ export default function DashboardPage() {
     joinRoom(room.token);
   };
 
-  const handleOwnerSendText = async (text: string, burn_after_seconds: number | null = null) => {
+  const handleOwnerSendText = async (text: string, burn_after_seconds: number | null = null, reply_to_id: string | null = null) => {
     if (!chatRoom) return;
     try {
-      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/text`, { content: text, sender: 'owner', burn_after_seconds });
+      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/text`, { content: text, sender: 'owner', burn_after_seconds, reply_to_id });
       setChatMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;
         return [...prev, res.data];
@@ -1160,7 +1160,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleOwnerSendFile = async (file: File, burn_after_seconds: number | null = null) => {
+  const handleOwnerSendFile = async (file: File, burn_after_seconds: number | null = null, reply_to_id: string | null = null) => {
     if (!chatRoom) return;
     const fd = new FormData();
     fd.append('file', file);
@@ -1168,6 +1168,9 @@ export default function DashboardPage() {
     fd.append('fileName', file.name);
     if (burn_after_seconds) {
       fd.append('burn_after_seconds', burn_after_seconds.toString());
+    }
+    if (reply_to_id) {
+      fd.append('reply_to_id', reply_to_id);
     }
     try {
       const res = await api.post(`/api/rooms/${chatRoom.token}/messages/file`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });

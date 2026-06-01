@@ -16,7 +16,7 @@ async function getRoomByToken(token) {
     .eq('token', token)
     .single();
   if (error || !data) return null;
-  if (!data.is_active || data.is_paused) return null;
+  if (!data.is_active) return null;
   if (data.expires_at && new Date(data.expires_at) < new Date()) return null;
   return data;
 }
@@ -74,7 +74,7 @@ router.post('/text', async (req, res, next) => {
     const room = await getRoomByToken(req.params.token);
     if (!room) return res.status(404).json({ error: 'Room not found or inactive' });
 
-    const { content, sender = 'guest', burn_after_seconds = null } = req.body;
+    const { content, sender = 'guest', burn_after_seconds = null, reply_to_id = null } = req.body;
     if (!content?.trim()) return res.status(400).json({ error: 'content is required' });
 
     // If sender is owner, verify JWT
@@ -86,6 +86,9 @@ router.post('/text', async (req, res, next) => {
       if (error || !user) return res.status(401).json({ error: 'Invalid token' });
       const ownerEmail = process.env.OWNER_EMAIL;
       if (ownerEmail && user.email !== ownerEmail) return res.status(403).json({ error: 'Access denied' });
+    } else {
+      // It's a guest
+      if (room.is_paused) return res.status(403).json({ error: 'Room is currently paused by admin' });
     }
 
     const { data: message, error } = await supabase
@@ -95,7 +98,8 @@ router.post('/text', async (req, res, next) => {
         sender, 
         type: 'text', 
         content: content.trim(),
-        burn_after_seconds: burn_after_seconds ? parseInt(burn_after_seconds, 10) : null
+        burn_after_seconds: burn_after_seconds ? parseInt(burn_after_seconds, 10) : null,
+        reply_to_id
       })
       .select()
       .single();
@@ -122,7 +126,13 @@ router.post('/file', (req, res, next) => {
       if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
       const sender = req.body.sender || 'guest';
+      
+      if (sender !== 'owner' && room.is_paused) {
+        return res.status(403).json({ error: 'Room is currently paused by admin' });
+      }
+
       const burn_after_seconds = req.body.burn_after_seconds ? parseInt(req.body.burn_after_seconds, 10) : null;
+      const reply_to_id = req.body.reply_to_id || null;
       const isImage = req.file.mimetype.startsWith('image/');
 
       const { data: message, error } = await supabase
@@ -134,7 +144,8 @@ router.post('/file', (req, res, next) => {
           file_url: req.file.path,
           file_name: req.body.fileName || req.file.originalname,
           file_size: req.file.size,
-          burn_after_seconds
+          burn_after_seconds,
+          reply_to_id
         })
         .select()
         .single();
@@ -302,6 +313,10 @@ router.post('/:id/react', async (req, res, next) => {
 
     const room = await getRoomByToken(token);
     if (!room) return res.status(404).json({ error: 'Room not found or inactive' });
+
+    if (userId !== 'owner' && room.is_paused) {
+      return res.status(403).json({ error: 'Room is currently paused by admin' });
+    }
 
     const { data: msg, error: fetchErr } = await supabase
       .from('messages')

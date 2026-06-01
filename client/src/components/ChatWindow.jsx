@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -143,13 +143,32 @@ function getFileTypeFromName(fileName) {
 }
 
 /* ── Message Bubble ── */
-function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, guestId }) {
+function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, guestId, onReply, messages }) {
   const [mediaExpanded, setMediaExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState('bottom');
+  
+  // Swipe to reply state
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const touchStartRef = useRef(null);
+  
+  const menuRef = useRef(null);
   const isMe = msg.sender === myRole;
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+        setShowEmojiPicker(false);
+      }
+    };
+    if (menuOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (msg.type === 'burned') return;
@@ -225,60 +244,205 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
 
   // if (timeLeft === 0) return null; // Removed so we can render the tombstone
 
+  const handleTouchStart = (e) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStartRef.current || !onReply) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const diffX = currentX - touchStartRef.current.x;
+    const diffY = currentY - touchStartRef.current.y;
+    
+    // Only process horizontal swipe if it's more significant than vertical scroll
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+      // For both mine and theirs, we can swipe left or right, let's say always swipe right to reply, or left to reply.
+      // WhatsApp standard: swipe right to reply to any message.
+      if (diffX > 0 && diffX < 80) {
+        setSwipeOffset(diffX);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (swipeOffset > 50 && onReply) {
+      onReply(msg);
+    }
+    setSwipeOffset(0);
+    touchStartRef.current = null;
+  };
+
   const isBurned = msg.type === 'burned' || timeLeft === 0;
   const isBlurred = !isMe && msg.burn_after_seconds && !msg.viewed_at && !isBurned;
 
   return (
-    <div className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'}`}>
+    <div 
+      id={`msg-${msg.id}`} 
+      className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'}`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : 'none', transition: touchStartRef.current ? 'none' : 'transform 0.2s ease-out' }}
+    >
+      {/* Swipe Reply Icon Indicator */}
+      {swipeOffset > 20 && (
+        <div className="absolute left-[-40px] top-1/2 -translate-y-1/2 flex items-center justify-center bg-black/20 text-white rounded-full w-8 h-8 opacity-70" style={{ transform: `scale(${Math.min(1, swipeOffset / 50)})` }}>
+          <Reply size={16} />
+        </div>
+      )}
+
       {/* Avatar — shown for other person only */}
       {!isMe && (
         <div className="bubble-avatar" style={{ background: getAvatarColor(msg.sender) }}>
           {msg.sender === 'owner' ? 'O' : 'G'}
         </div>
       )}
+      <div 
+        className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (!isBurned) {
+            const spaceBelow = window.innerHeight - e.clientY;
+            setMenuPosition(spaceBelow < 250 ? 'top' : 'bottom');
+            setMenuOpen(true);
+          }
+        }}
+      >
+        {!isBurned && !isBlurred && (
+          <button 
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 bg-black/20 hover:bg-black/40 text-white rounded-full transition-opacity z-10 backdrop-blur-sm"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              const rect = e.currentTarget.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - rect.bottom;
+              setMenuPosition(spaceBelow < 250 ? 'top' : 'bottom');
+              setMenuOpen(true); 
+            }}
+            title="Options"
+          >
+            <ChevronDown size={14} />
+          </button>
+        )}
 
-      {/* Floating action toolbar — appears outside bubble on hover */}
-      <div className={`bubble-toolbar ${isMe ? 'bubble-toolbar--left' : 'bubble-toolbar--right'}`}>
-        {(msg.type === 'image' || msg.type === 'file') && !isBlurred && !isBurned && (
-          <button className="bubble-action" title="Download" onClick={handleDownload}>
-            <Download size={12} />
-          </button>
-        )}
-        {!isBlurred && !isBurned && (
-          <button className={`bubble-action ${copied ? 'text-success' : ''}`} onClick={handleCopy} title="Copy">
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-          </button>
-        )}
-        {!isBurned && (
-          <div className="relative">
-            <button
-              className="bubble-action bubble-action--react"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              title="React"
+        {menuOpen && (
+          <>
+            {/* Mobile Overlay */}
+            <div 
+              className="fixed inset-0 bg-black/50 z-[90] md:hidden backdrop-blur-sm" 
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); }} 
+            />
+            
+            {/* Menu Container: Bottom Sheet on Mobile, Dropdown on Desktop */}
+            <div 
+              ref={menuRef} 
+              className={`
+                fixed inset-x-0 bottom-0 pb-[env(safe-area-inset-bottom)] rounded-t-3xl w-full z-[100]
+                md:absolute md:w-auto md:min-w-[140px] md:rounded-xl md:z-50 md:inset-auto md:pb-0
+                ${menuPosition === 'top' ? 'md:bottom-full md:mb-2' : 'md:top-6'} 
+                ${isMe ? 'md:right-2 md:left-auto' : 'md:left-2 md:right-auto'} 
+                bg-bgCard border-t md:border border-border shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-[0_8px_30px_rgba(0,0,0,0.3)] 
+                flex flex-col p-4 md:p-1
+              `}
             >
-              <SmilePlus size={12} />
-            </button>
-            {showEmojiPicker && (
-              <div className={`chat-mini-emoji-picker ${isMe ? 'chat-mini-emoji-picker--left' : ''}`}>
+              {/* Mobile Drag Pill */}
+              <div className="w-12 h-1.5 bg-borderActive rounded-full mx-auto mb-5 md:hidden" />
+
+              {/* Mobile Emoji Row (Always visible) */}
+              <div className="flex justify-center gap-3 mb-4 px-2 overflow-x-auto md:hidden">
                 {QUICK_EMOJIS.map(e => (
-                  <button key={e} onClick={() => handleReactClick(e)}>{e}</button>
+                  <button 
+                    key={e} 
+                    className="text-3xl p-3 bg-white/5 rounded-full hover:bg-white/10 transition-colors" 
+                    onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}
+                  >
+                    {e}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-        {canDelete && myRole === 'owner' && (
-          <button
-            className={`bubble-action bubble-action--delete ${confirmDelete ? 'bubble-action--confirm' : ''}`}
-            onClick={handleDelete}
-            title={confirmDelete ? 'Confirm?' : 'Delete'}
-          >
-            <X size={12} />
-          </button>
-        )}
-      </div>
 
-      <div className={`bubble ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}>
+              {/* Desktop Emoji Toggle Button */}
+              <button 
+                className="hidden md:flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowEmojiPicker(!showEmojiPicker);
+                }}
+              >
+                <SmilePlus size={15} className="text-textGhost" /> React
+                {showEmojiPicker && (
+                  <div className={`absolute ${menuPosition === 'top' ? 'bottom-0' : 'top-0'} ${isMe ? 'right-[105%]' : 'left-[105%]'} bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] rounded-xl p-1.5 flex gap-1 z-50`}>
+                    {QUICK_EMOJIS.map(e => (
+                      <span key={e} className="cursor-pointer hover:bg-bgHover p-1.5 rounded-lg text-lg transition-transform hover:scale-110" onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}>{e}</span>
+                    ))}
+                  </div>
+                )}
+              </button>
+
+              {/* Other Actions */}
+              {(msg.type === 'image' || msg.type === 'file') && (
+                <button className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-bgHover rounded-xl md:rounded-lg text-base md:text-sm text-textPrimary text-left transition-colors" onClick={(e) => { setMenuOpen(false); setShowEmojiPicker(false); handleDownload(e); }}>
+                  <Download size={18} className="text-textGhost md:w-[15px]" /> Download
+                </button>
+              )}
+              {onReply && (
+                <button className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-bgHover rounded-xl md:rounded-lg text-base md:text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); onReply(msg); }}>
+                  <Reply size={18} className="text-textGhost md:w-[15px]" /> Reply
+                </button>
+              )}
+              <button className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-bgHover rounded-xl md:rounded-lg text-base md:text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); handleCopy(); }}>
+                <Copy size={18} className="text-textGhost md:w-[15px]" /> Copy
+              </button>
+              
+              {canDelete && myRole === 'owner' && (
+                <>
+                  <div className="h-[1px] bg-border my-2 md:my-1 mx-4 md:mx-2" />
+                  <button 
+                    className="flex items-center gap-4 md:gap-3 px-4 md:px-3 py-3 md:py-2 hover:bg-danger/10 rounded-xl md:rounded-lg text-base md:text-sm text-danger text-left transition-colors" 
+                    onClick={(e) => { 
+                      e.stopPropagation();
+                      if (!confirmDelete) {
+                        setConfirmDelete(true);
+                        setTimeout(() => setConfirmDelete(false), 2000);
+                      } else {
+                        setMenuOpen(false);
+                        setShowEmojiPicker(false);
+                        handleDelete(e);
+                      }
+                    }}
+                  >
+                    <X size={18} className="md:w-[15px]" /> {confirmDelete ? 'Confirm?' : 'Delete'}
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+        {/* Render Quoted Reply */}
+        {msg.reply_to_id && messages && (
+          (() => {
+            const quotedMsg = messages.find(m => m.id === msg.reply_to_id);
+            if (!quotedMsg) return null;
+            return (
+              <div 
+                className="cursor-pointer opacity-80 border-l-2 border-cyan-400 pl-2 mb-2 bg-black/10 rounded-r text-xs p-1"
+                onClick={() => {
+                  // Optional: scroll to the quoted message
+                  const el = document.getElementById(`msg-${quotedMsg.id}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+              >
+                <div className="font-bold text-[10px] uppercase text-cyan-400 mb-0.5">
+                  {quotedMsg.sender === myRole ? 'You' : quotedMsg.sender === 'owner' ? 'Owner' : 'Guest'}
+                </div>
+                <div className="truncate max-w-[200px] text-textSecondary">
+                  {quotedMsg.type === 'text' ? quotedMsg.content : `[${quotedMsg.type}]`}
+                </div>
+              </div>
+            );
+          })()
+        )}
+        
         {/* Sender name only — no actions here anymore */}
         <div className="bubble-meta">
           <span className="bubble-sender">
@@ -487,6 +651,7 @@ export default function ChatWindow({
   const [isDragging, setIsDragging] = useState(false);
   const [previewHeight, setPreviewHeight] = useState(0);
   const [showTimerMenu, setShowTimerMenu] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -612,10 +777,11 @@ export default function ChatWindow({
 
     if (voiceNotePreview) {
       setSending(true);
-      await onSendFile(voiceNotePreview.file, timerDuration);
+      await onSendFile(voiceNotePreview.file, timerDuration, replyingTo?.id);
       URL.revokeObjectURL(voiceNotePreview.url);
       setVoiceNotePreview(null);
       setTimerDuration(null);
+      setReplyingTo(null);
       setSending(false);
       return;
     }
@@ -626,15 +792,16 @@ export default function ChatWindow({
     try {
       if (filePreviews.length > 0) {
         for (const p of filePreviews) {
-          await onSendFile(p.file, timerDuration);
+          await onSendFile(p.file, timerDuration, replyingTo?.id);
         }
         setFilePreviews([]);
       }
       if (text.trim()) {
-        await onSendText(text.trim(), timerDuration);
+        await onSendText(text.trim(), timerDuration, replyingTo?.id);
         setText('');
       }
       setTimerDuration(null);
+      setReplyingTo(null);
     } catch (err) {
       toast.error('Failed to send message');
     } finally {
@@ -797,6 +964,8 @@ export default function ChatWindow({
                   onView={onView}
                   onBurn={onBurn}
                   guestId={guestId}
+                  onReply={setReplyingTo}
+                  messages={messages}
                 />
               </div>
             );
@@ -831,8 +1000,25 @@ export default function ChatWindow({
           </div>
         </div>
       ) : (
-        <div className="chat-bar">
-          <div className="chat-input-wrapper">
+        <div className="chat-bar flex-col items-stretch">
+          {replyingTo && (
+            <div className="flex items-center justify-between px-3 py-2 bg-black/10 border-b border-borderBase/50 rounded-t-xl mb-[-4px] z-10 mx-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Reply size={14} className="text-cyan-400 shrink-0" />
+                <div className="text-xs truncate">
+                  <span className="font-bold text-cyan-400 mr-2">Replying to {replyingTo.sender === myRole ? 'yourself' : replyingTo.sender === 'owner' ? 'Owner' : 'Guest'}:</span>
+                  <span className="text-textSecondary">{replyingTo.type === 'text' ? replyingTo.content : `[${replyingTo.type}]`}</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setReplyingTo(null)}
+                className="p-1 hover:bg-white/10 rounded-full text-textGhost hover:text-white transition-colors shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          <div className="chat-input-wrapper z-20">
             <button
               className="chat-attach"
               onClick={() => fileInputRef.current?.click()}
