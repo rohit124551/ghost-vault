@@ -23,10 +23,15 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **📱 In-Chat Command Menu**: Kebab menu natively built into the chat header. Pause/resume tunnels, copy links, view QR codes, and edit node times without ever leaving the chat view!
 - **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
+  - **📌 Pinned Messages**: Pin important messages to a sticky, highly visible banner at the top of the chat thread.
+  - **🔄 Swipe-to-Reply**: Intuitively swipe right on any message (especially on mobile) to instantly quote and reply to it.
   - **In-Line Media Players**: Video and audio clips (`.mp4`, `.webm`, `.mp3`) are instantly playable inside chat bubbles.
   - **PDF Previews**: First-page thumbnails for uploaded PDFs generated dynamically via Cloudinary.
   - **Voice Notes**: Quick-record microphone button for instant, Telegram-style audio voice notes.
   - **Emoji Reactions**: React to messages instantly. Admins have superpower capabilities to override and remove any reactions.
+- **📱 Mobile-First Optimizations**: Uses modern CSS (`100dvh`) to prevent double scrollbars and ensures the UI feels native on iOS/Android, complete with a dedicated touch-friendly context menu button.
+- **🐛 Built-in Bug Reporting**: A dedicated floating action button for guests and owners to report UI/UX bugs, logging them directly to the admin dashboard's 'Bugs' tab.
+- **🌗 Dynamic Theme Toggling**: Effortlessly switch between Cyber Midnight (Dark) and Light mode with a single click, instantly adapting all glassmorphic UI elements.
 - **🗑️ 2-Step Secure Deletion**: Prevent accidental data loss with safety-first deletion workflows and pulsing visual confirmations.
 - **📱 Responsive Sidebar**: Intelligent navigation with auto-collapse on chat, click-outside-to-close behavior, and persistent toggles for maximum workspace focus.
 - **👁️ View-Once Mode**: Specialized tunnels that automatically revoke themselves the moment the first file is received.
