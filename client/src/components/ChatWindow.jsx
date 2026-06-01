@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -143,7 +143,7 @@ function getFileTypeFromName(fileName) {
 }
 
 /* ── Message Bubble ── */
-function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, guestId, onReply, messages }) {
+function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages }) {
   const [mediaExpanded, setMediaExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -309,6 +309,11 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
           }
         }}
       >
+        {msg.is_pinned && !isBurned && !isBlurred && (
+          <div className="absolute -top-2 -left-2 bg-bgCard border border-cyan-500/30 rounded-full p-1 shadow-md z-10" title="Pinned">
+            <Pin size={10} className="text-cyan-400" />
+          </div>
+        )}
         {!isBurned && !isBlurred && (
           <button 
             className="absolute top-1 right-1 opacity-100 md:opacity-0 group-hover:opacity-100 p-1 bg-black/20 hover:bg-black/40 text-white rounded-full transition-opacity z-10 backdrop-blur-sm"
@@ -365,6 +370,18 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
                   ))}
                 </div>
               )}
+            </button>
+            <div className="h-[1px] bg-border my-1 mx-2" />
+            <button
+              className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                if (onPin) onPin(msg.id);
+              }}
+            >
+              {msg.is_pinned ? <PinOff size={15} className="text-textGhost" /> : <Pin size={15} className="text-textGhost" />} 
+              {msg.is_pinned ? 'Unpin' : 'Pin'}
             </button>
 
             {canDelete && myRole === 'owner' && (
@@ -610,7 +627,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
    ══════════════════════════════════════════════ */
 export default function ChatWindow({
   messages, onSendText, onSendFile,
-  onDelete, canDelete, onReact, onView, onBurn, loading,
+  onDelete, canDelete, onReact, onView, onBurn, onPin, loading,
   myRole = 'owner', disabled = false
 }) {
   const [text, setText] = useState('');
@@ -892,6 +909,39 @@ export default function ChatWindow({
         )}
       </AnimatePresence>
 
+      {/* ── Pinned Message Banner ── */}
+      {(() => {
+        const pinnedMsg = messages?.slice().reverse().find(m => m.is_pinned);
+        if (!pinnedMsg) return null;
+        return (
+          <div 
+            className="chat-pinned-banner"
+            onClick={() => {
+              // Optionally scroll to message
+              const el = document.getElementById(`msg-${pinnedMsg.id}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+          >
+            <div className="chat-pinned-icon">
+              <Pin size={14} className="text-cyan-400" />
+            </div>
+            <div className="chat-pinned-content">
+              <span className="chat-pinned-title">Pinned Message</span>
+              <span className="chat-pinned-text truncate">{pinnedMsg.content || 'Attached file...'}</span>
+            </div>
+            {onPin && (
+              <button 
+                className="chat-pinned-close" 
+                onClick={(e) => { e.stopPropagation(); onPin(pinnedMsg.id); }}
+                title="Unpin"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Message thread ── */}
       <div className="chat-thread" ref={threadRef} onScroll={handleScroll}>
 
@@ -921,7 +971,7 @@ export default function ChatWindow({
             }
 
             return (
-              <div key={msg.id || i} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div key={msg.id || i} id={`msg-${msg.id}`} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
                 {showDate && (
                   <div className="chat-date-separator">
                     <span>{formatDateSeparator(msg.created_at)}</span>
@@ -935,6 +985,7 @@ export default function ChatWindow({
                   onReact={onReact}
                   onView={onView}
                   onBurn={onBurn}
+                  onPin={onPin}
                   guestId={guestId}
                   onReply={setReplyingTo}
                   messages={messages}

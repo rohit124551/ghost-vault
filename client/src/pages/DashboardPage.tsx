@@ -902,6 +902,12 @@ export default function DashboardPage() {
       }
     };
 
+    const onMessagePinned = ({ messageId, is_pinned, roomToken }: any) => {
+      if (chatRoom && roomToken === chatRoom.token) {
+        setChatMessages(prev => prev.map(m => m.id === messageId ? { ...m, is_pinned } : m));
+      }
+    };
+
     socket.on('new_file', onFile);
     socket.on('new_message', onMessage);
     socket.on('room_revoked', onRevoked);
@@ -910,6 +916,7 @@ export default function DashboardPage() {
     socket.on('room_updated', onRoomUpdated);
     socket.on('message_viewed', onMessageViewed);
     socket.on('message_burned', onMessageBurned);
+    socket.on('message_pinned', onMessagePinned);
     return () => {
       socket.off('new_file', onFile);
       socket.off('new_message', onMessage);
@@ -919,6 +926,7 @@ export default function DashboardPage() {
       socket.off('room_updated', onRoomUpdated);
       socket.off('message_viewed', onMessageViewed);
       socket.off('message_burned', onMessageBurned);
+      socket.off('message_pinned', onMessagePinned);
     };
   }, [socket, rooms, chatRoom, joinRoom]);
 
@@ -1191,6 +1199,16 @@ export default function DashboardPage() {
       toast.success('Message deleted');
     } catch {
       toast.error('Failed to delete message');
+    }
+  };
+
+  const handlePinMessage = async (id: string) => {
+    if (!chatRoom) return;
+    try {
+      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/${id}/pin`);
+      setChatMessages(prev => prev.map(m => m.id === id ? { ...m, is_pinned: res.data.is_pinned } : m));
+    } catch {
+      toast.error('Failed to toggle pin');
     }
   };
 
@@ -1661,6 +1679,7 @@ export default function DashboardPage() {
                       onReact={handleReact}
                       onView={handleViewMessage}
                       onBurn={handleBurnMessage}
+                      onPin={handlePinMessage}
                       canDelete={true}
                       loading={chatLoading}
                       myRole="owner"

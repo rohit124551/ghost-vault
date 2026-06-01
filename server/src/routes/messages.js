@@ -381,5 +381,49 @@ router.post('/:id/react', async (req, res, next) => {
     next(err);
   }
 });
+// POST /api/rooms/:token/messages/:id/pin — Toggle pin status
+router.post('/:id/pin', async (req, res, next) => {
+  try {
+    const { token, id } = req.params;
+    
+    // Auth check (if needed, but usually both owner and guest can pin)
+    // Validate room exists
+    const room = await getRoomByToken(token);
+    if (!room) return res.status(403).json({ error: 'Room unavailable' });
+
+    // Fetch message
+    const { data: msg, error: msgErr } = await supabase
+      .from('messages')
+      .select('is_pinned')
+      .eq('id', id)
+      .eq('room_id', room.id)
+      .single();
+
+    if (msgErr || !msg) return res.status(404).json({ error: 'Message not found' });
+
+    // Toggle pin
+    const newPinStatus = !msg.is_pinned;
+    const { data: updatedMsg, error: updateErr } = await supabase
+      .from('messages')
+      .update({ is_pinned: newPinStatus })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // Broadcast
+    const io = req.app.get('io');
+    io.to(`room:${token}`).emit('message_pinned', { 
+      messageId: id, 
+      is_pinned: newPinStatus,
+      roomToken: token 
+    });
+
+    res.json(updatedMsg);
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

@@ -245,6 +245,12 @@ export default function GuestRoomPage() {
       }
     });
 
+    s.on('message_pinned', ({ messageId, is_pinned, roomToken }) => {
+      if (roomToken === token) {
+        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, is_pinned } : m));
+      }
+    });
+
     return () => s.disconnect();
   }, [token, navigate]);
 
@@ -319,6 +325,14 @@ export default function GuestRoomPage() {
     try {
       await axios.post(`${API_URL}/api/rooms/${token}/messages/${msgId}/burn`);
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, type: 'burned', content: null, file_url: null, file_name: null } : m));
+    } catch {}
+  };
+
+  const handlePinMessage = async (msgId) => {
+    if (status !== 'valid') return;
+    try {
+      const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/${msgId}/pin`);
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_pinned: res.data.is_pinned } : m));
     } catch {}
   };
 
@@ -399,6 +413,7 @@ export default function GuestRoomPage() {
             onReact={handleReact}
             onView={handleViewMessage}
             onBurn={handleBurnMessage}
+            onPin={handlePinMessage}
             onDelete={null}
             canDelete={false}
             loading={chatLoad}

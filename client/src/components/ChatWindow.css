@@ -7,6 +7,59 @@
   overflow: hidden;
 }
 
+/* ── Pinned Message Banner ── */
+.chat-pinned-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-active);
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.chat-pinned-banner:hover {
+  background: rgba(6, 182, 212, 0.05);
+}
+.chat-pinned-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(6, 182, 212, 0.1);
+}
+.chat-pinned-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chat-pinned-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.chat-pinned-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.chat-pinned-close {
+  padding: 4px;
+  color: var(--text-ghost);
+  border-radius: 4px;
+  background: transparent;
+  transition: all 0.2s;
+}
+.chat-pinned-close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ── Thread ── */
 .chat-thread {
   flex: 1;
