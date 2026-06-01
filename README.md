@@ -29,6 +29,7 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
   - **PDF Previews**: First-page thumbnails for uploaded PDFs generated dynamically via Cloudinary.
   - **Voice Notes**: Quick-record microphone button for instant, Telegram-style audio voice notes.
   - **Emoji Reactions**: React to messages instantly. Admins have superpower capabilities to override and remove any reactions.
+  - **📊 Live Upload Progress**: Precision upload tracking. Attached files instantly turn into visual progress bars showing real-time network transmission percentages `0% -> 100%`.
 - **📱 Mobile-First Optimizations**: Uses modern CSS (`100dvh`) to prevent double scrollbars and ensures the UI feels native on iOS/Android, complete with a dedicated touch-friendly context menu button.
 - **🐛 Built-in Bug Reporting**: A dedicated floating action button for guests and owners to report UI/UX bugs, logging them directly to the admin dashboard's 'Bugs' tab.
 - **🌗 Dynamic Theme Toggling**: Effortlessly switch between Cyber Midnight (Dark) and Light mode with a single click, instantly adapting all glassmorphic UI elements.

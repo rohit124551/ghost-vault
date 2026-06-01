@@ -272,7 +272,7 @@ export default function GuestRoomPage() {
   };
 
   // Guest sends file
-  const handleSendFile = async (file, burn_after_seconds = null, reply_to_id = null) => {
+  const handleSendFile = async (file, burn_after_seconds = null, reply_to_id = null, onProgress) => {
     if (status !== 'valid') return;
     try {
       const formData = new FormData();
@@ -287,7 +287,8 @@ export default function GuestRoomPage() {
       }
       
       const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: onProgress
       });
       setMessages(prev => {
         if (prev.some(m => m.id === res.data.id)) return prev;

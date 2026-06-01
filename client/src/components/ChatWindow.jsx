@@ -636,6 +636,7 @@ export default function ChatWindow({
   const [customTimerInput, setCustomTimerInput] = useState('');
   const [sending, setSending] = useState(false);
   const [filePreviews, setFilePreviews] = useState([]); // Array of { file, name }
+  const [uploadProgress, setUploadProgress] = useState(null); // number 0-100 or null
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewHeight, setPreviewHeight] = useState(0);
@@ -766,7 +767,13 @@ export default function ChatWindow({
 
     if (voiceNotePreview) {
       setSending(true);
-      await onSendFile(voiceNotePreview.file, timerDuration, replyingTo?.id);
+      setUploadProgress(0);
+      await onSendFile(voiceNotePreview.file, timerDuration, replyingTo?.id, (e) => {
+        if (e.total) {
+          setUploadProgress(Math.round((e.loaded * 100) / e.total));
+        }
+      });
+      setUploadProgress(null);
       URL.revokeObjectURL(voiceNotePreview.url);
       setVoiceNotePreview(null);
       setTimerDuration(null);
@@ -781,9 +788,15 @@ export default function ChatWindow({
     try {
       if (filePreviews.length > 0) {
         for (const p of filePreviews) {
-          await onSendFile(p.file, timerDuration, replyingTo?.id);
+          setUploadProgress(0);
+          await onSendFile(p.file, timerDuration, replyingTo?.id, (e) => {
+            if (e.total) {
+              setUploadProgress(Math.round((e.loaded * 100) / e.total));
+            }
+          });
+          setUploadProgress(null);
+          setFilePreviews(prev => prev.slice(1));
         }
-        setFilePreviews([]);
       }
       if (text.trim()) {
         await onSendText(text.trim(), timerDuration, replyingTo?.id);
@@ -997,17 +1010,25 @@ export default function ChatWindow({
         <div ref={scrollRef} />
       </div>
 
-      {/* ── File previews ── */}
       {filePreviews.length > 0 && !disabled && (
         <div className="chat-previews-container" ref={previewRef}>
           <div className="chat-previews-list">
             {filePreviews.map((p, idx) => (
-              <div key={idx} className="chat-file-chip">
-                <File size={13} />
-                <span className="chat-file-chip-name">{p.name}</span>
-                <button className="chat-file-chip-remove" onClick={() => removeFile(idx)}>
-                  <X size={11} />
-                </button>
+              <div key={idx} className="chat-file-chip relative overflow-hidden flex items-center pr-2">
+                <File size={13} className="z-10 relative shrink-0" />
+                <span className="chat-file-chip-name z-10 relative truncate flex-1">{p.name}</span>
+                {sending && uploadProgress !== null && idx === 0 ? (
+                  <span className="z-10 relative text-[10px] font-bold text-cyan-400 bg-[#0f172a] px-1.5 py-0.5 rounded shadow-sm shrink-0 ml-2">
+                    {uploadProgress}%
+                  </span>
+                ) : (
+                  <button className="chat-file-chip-remove z-10 relative shrink-0 ml-2" onClick={() => removeFile(idx)} disabled={sending}>
+                    <X size={11} />
+                  </button>
+                )}
+                {sending && uploadProgress !== null && idx === 0 && (
+                  <div className="absolute left-0 top-0 bottom-0 bg-cyan-500/20 z-0 pointer-events-none" style={{ width: `${uploadProgress}%`, transition: 'width 0.2s' }}></div>
+                )}
               </div>
             ))}
           </div>
