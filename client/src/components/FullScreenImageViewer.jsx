@@ -10,10 +10,10 @@ import './FullScreenImageViewer.css';
 /* ─── helpers ─── */
 function FileTypeBadge({ fileType }) {
   const map = {
-    image: { icon: <ImageIcon size={11} />, label: 'IMAGE',  color: '#06b6d4' },
-    video: { icon: <Film      size={11} />, label: 'VIDEO',  color: '#8b5cf6' },
-    audio: { icon: <Music     size={11} />, label: 'AUDIO',  color: '#f59e0b' },
-    pdf:   { icon: <FileText  size={11} />, label: 'PDF',    color: '#ef4444' },
+    image: { icon: <ImageIcon size={11} />, label: 'IMAGE', color: '#06b6d4' },
+    video: { icon: <Film size={11} />, label: 'VIDEO', color: '#8b5cf6' },
+    audio: { icon: <Music size={11} />, label: 'AUDIO', color: '#f59e0b' },
+    pdf: { icon: <FileText size={11} />, label: 'PDF', color: '#ef4444' },
   };
   const t = map[fileType] || map.image;
   return (
@@ -25,47 +25,47 @@ function FileTypeBadge({ fileType }) {
 
 export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 'image', onClose }) {
   /* ─── image state ─── */
-  const [scale, setScale]       = useState(1);
+  const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const [imgLoaded, setImgLoaded]     = useState(false);
-  const [copied, setCopied]           = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   /* ─── video state ─── */
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [videoMuted,   setVideoMuted]   = useState(false);
+  const [videoMuted, setVideoMuted] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   const videoRef = useRef(null);
 
   /* ─── audio state ─── */
-  const [audioPlaying,  setAudioPlaying]  = useState(false);
-  const [audioMuted,    setAudioMuted]    = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioMuted, setAudioMuted] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef(null);
 
   const containerRef = useRef(null);
-  const imgRef       = useRef(null);
+  const imgRef = useRef(null);
 
   /* ─── drag/swipe refs ─── */
-  const dragStartRef        = useRef({ x: 0, y: 0 });
-  const isDraggingRef       = useRef(false);
-  const lastTouchTimeRef    = useRef(0);
-  const touchStartDistRef   = useRef(null);
-  const touchStartScaleRef  = useRef(1);
-  const swipeStartYRef      = useRef(null);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const lastTouchTimeRef = useRef(0);
+  const touchStartDistRef = useRef(null);
+  const touchStartScaleRef = useRef(1);
+  const swipeStartYRef = useRef(null);
 
   /* ─── image controls ─── */
-  const handleZoomIn  = () => setScale(p => Math.min(p + 0.5, 5));
+  const handleZoomIn = () => setScale(p => Math.min(p + 0.5, 5));
   const handleZoomOut = () => setScale(p => { const n = Math.max(p - 0.5, 1); if (n === 1) setPosition({ x: 0, y: 0 }); return n; });
-  const handleRotate  = () => setRotation(p => (p + 90) % 360);
-  const handleReset   = () => { setScale(1); setPosition({ x: 0, y: 0 }); setRotation(0); setSwipeOffset(0); };
+  const handleRotate = () => setRotation(p => (p + 90) % 360);
+  const handleReset = () => { setScale(1); setPosition({ x: 0, y: 0 }); setRotation(0); setSwipeOffset(0); };
 
   const handleCopyImage = async () => {
     try {
-      const res  = await fetch(imageUrl);
+      const res = await fetch(imageUrl);
       const blob = await res.blob();
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
       setCopied(true);
@@ -83,12 +83,12 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
     e?.preventDefault();
     e?.stopPropagation();
     try {
-      const res    = await fetch(imageUrl);
-      const blob   = await res.blob();
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
-      const a      = document.createElement('a');
-      a.href       = blobUrl;
-      a.download   = imageName || 'download';
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = imageName || 'download';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -103,7 +103,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) { v.play(); setVideoPlaying(true); }
-    else          { v.pause(); setVideoPlaying(false); }
+    else { v.pause(); setVideoPlaying(false); }
   }, []);
 
   const toggleVideoMute = () => {
@@ -122,7 +122,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) { a.play(); setAudioPlaying(true); }
-    else          { a.pause(); setAudioPlaying(false); }
+    else { a.pause(); setAudioPlaying(false); }
   };
 
   const toggleAudioMute = () => {
@@ -158,13 +158,13 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
       if (e.key === 'Escape') { onClose(); return; }
       if (fileType === 'image') {
         if (e.key === '+' || e.key === '=') handleZoomIn();
-        if (e.key === '-')                  handleZoomOut();
+        if (e.key === '-') handleZoomOut();
         if (e.key === 'r' || e.key === 'R') handleRotate();
-        if (e.key === '0')                  handleReset();
+        if (e.key === '0') handleReset();
       }
       if (fileType === 'video') {
         if (e.key === ' ') { e.preventDefault(); toggleVideoPlay(); }
-        if (e.key === 'ArrowLeft')  seekVideo(-10);
+        if (e.key === 'ArrowLeft') seekVideo(-10);
         if (e.key === 'ArrowRight') seekVideo(10);
         if (e.key === 'm' || e.key === 'M') toggleVideoMute();
       }
@@ -183,7 +183,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
   const handleStart = (clientX, clientY, isTouchEvent, touchesCount = 1, rawTouches = []) => {
     if (touchesCount === 2 && isTouchEvent) {
       isDraggingRef.current = false;
-      touchStartDistRef.current  = getTouchDist(rawTouches[0], rawTouches[1]);
+      touchStartDistRef.current = getTouchDist(rawTouches[0], rawTouches[1]);
       touchStartScaleRef.current = scale;
     } else {
       if (scale > 1) {
@@ -227,7 +227,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
 
   const onMouseDown = (e) => { if (e.button !== 0) return; handleStart(e.clientX, e.clientY, false); };
   const onMouseMove = (e) => handleMove(e.clientX, e.clientY, false);
-  const onMouseUp   = ()  => handleEnd();
+  const onMouseUp = () => handleEnd();
 
   const onTouchStart = (e) => {
     const t = e.touches;
@@ -247,8 +247,8 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
   };
   const onTouchEnd = () => handleEnd();
 
-  const backdropOpacity  = Math.max(0.4, 0.95 - Math.min(Math.abs(swipeOffset) / 400, 0.55));
-  const swipeTransform   = `translate3d(${position.x}px, ${position.y + swipeOffset}px, 0) scale(${scale}) rotate(${rotation}deg)`;
+  const backdropOpacity = Math.max(0.4, 0.95 - Math.min(Math.abs(swipeOffset) / 400, 0.55));
+  const swipeTransform = `translate3d(${position.x}px, ${position.y + swipeOffset}px, 0) scale(${scale}) rotate(${rotation}deg)`;
 
   return (
     <div
@@ -256,7 +256,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
       className="fs-viewer-overlay"
       style={{
         backgroundColor: `rgba(4, 4, 6, ${backdropOpacity})`,
-        backdropFilter:  `blur(${Math.max(2, 16 - Math.abs(swipeOffset) / 20)}px)`,
+        backdropFilter: `blur(${Math.max(2, 16 - Math.abs(swipeOffset) / 20)}px)`,
       }}
       onMouseDown={fileType === 'image' ? onMouseDown : undefined}
       onMouseMove={fileType === 'image' ? onMouseMove : undefined}
@@ -386,11 +386,11 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
               className="fs-viewer-media fs-video"
               preload="metadata"
               playsInline
-              onPlay={()         => setVideoPlaying(true)}
-              onPause={()        => setVideoPlaying(false)}
-              onEnded={()        => setVideoPlaying(false)}
+              onPlay={() => setVideoPlaying(true)}
+              onPause={() => setVideoPlaying(false)}
+              onEnded={() => setVideoPlaying(false)}
               onLoadedMetadata={() => setVideoDuration(videoRef.current?.duration || 0)}
-              onTimeUpdate={()   => setVideoProgress(videoRef.current?.currentTime || 0)}
+              onTimeUpdate={() => setVideoProgress(videoRef.current?.currentTime || 0)}
               onClick={toggleVideoPlay}
             />
             {/* Custom scrubber */}
@@ -423,11 +423,11 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
               ref={audioRef}
               src={imageUrl}
               preload="metadata"
-              onPlay={()         => setAudioPlaying(true)}
-              onPause={()        => setAudioPlaying(false)}
-              onEnded={()        => setAudioPlaying(false)}
+              onPlay={() => setAudioPlaying(true)}
+              onPause={() => setAudioPlaying(false)}
+              onEnded={() => setAudioPlaying(false)}
               onLoadedMetadata={() => setAudioDuration(audioRef.current?.duration || 0)}
-              onTimeUpdate={()   => setAudioProgress(audioRef.current?.currentTime || 0)}
+              onTimeUpdate={() => setAudioProgress(audioRef.current?.currentTime || 0)}
             />
             {/* Waveform visual bars */}
             <div className="fs-audio-visual">
@@ -486,7 +486,7 @@ export default function FullScreenImageViewer({ imageUrl, imageName, fileType = 
           {fileType === 'image' && 'Scroll/pinch to zoom · Drag to pan · Double-click to toggle · Swipe ↓ to close'}
           {fileType === 'video' && 'Space = play/pause · ← → = seek 10s · M = mute · Esc = close'}
           {fileType === 'audio' && 'Space = play/pause · M = mute · Esc = close'}
-          {fileType === 'pdf'   && 'Scroll inside to read · Tab out to close'}
+          {fileType === 'pdf' && 'Scroll inside to read · Tab out to close'}
         </p>
       </div>
     </div>

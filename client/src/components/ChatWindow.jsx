@@ -9,7 +9,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import './ChatWindow.css';
 
 /* ── Helpers ── */
-const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22c55e','#06b6d4'];
+const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4'];
 
 function getAvatarColor(seed) {
   let hash = 0;
@@ -23,17 +23,17 @@ function parseInlineMarkdown(text) {
     if (urlRegex.test(part1)) {
       return <a key={`url-${i1}`} href={part1} target="_blank" rel="noreferrer" className="chat-link">{part1}</a>;
     }
-    
+
     // Inline code
     const codeRegex = /`([^`]+)`/g;
     return part1.split(codeRegex).map((part2, i2) => {
       if (i2 % 2 === 1) return <code key={`code-${i1}-${i2}`} className="chat-inline-code">{part2}</code>;
-      
+
       // Bold (handles **bold** or *bold*)
       const boldRegex = /\*{1,2}([^*]+)\*{1,2}/g;
       return part2.split(boldRegex).map((part3, i3) => {
         if (i3 % 2 === 1) return <strong key={`bold-${i1}-${i2}-${i3}`}>{part3}</strong>;
-        
+
         // Italics
         const italicRegex = /_([^_]+)_/g;
         return part3.split(italicRegex).map((part4, i4) => {
@@ -48,7 +48,7 @@ function parseInlineMarkdown(text) {
 function renderMessageText(text) {
   // Check for code blocks ```language ... ```
   const codeBlockRegex = /```([\w-]*)\n([\s\S]*?)```/g;
-  
+
   const elements = [];
   let lastIndex = 0;
   let match;
@@ -61,7 +61,7 @@ function renderMessageText(text) {
         <span key={`text-${lastIndex}`}>{parseInlineMarkdown(preceding)}</span>
       );
     }
-    
+
     // Add code block
     const language = match[1] || 'text';
     const code = match[2];
@@ -83,10 +83,10 @@ function renderMessageText(text) {
         </SyntaxHighlighter>
       </div>
     );
-    
+
     lastIndex = codeBlockRegex.lastIndex;
   }
-  
+
   // Add remaining text
   if (lastIndex < text.length) {
     elements.push(
@@ -110,6 +110,12 @@ function getCloudinaryPoster(url) {
   return url.replace(/\.[^/.]+$/, '.jpg').replace('/upload/', '/upload/so_0/');
 }
 
+function getCloudinaryPdfThumb(url) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  // Replace extension with .jpg to get the first page image
+  return url.replace(/\.[^/.]+$/, '.jpg').replace('/upload/', '/upload/c_limit,w_400,pg_1/');
+}
+
 function formatTime(ts) {
   return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
@@ -122,7 +128,7 @@ function formatDateSeparator(ts) {
 
   if (date.toDateString() === today.toDateString()) return 'Today';
   if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  
+
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -169,7 +175,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
     setShowEmojiPicker(false);
     onReact(msg.id, emoji, forceRemove);
   };
-  
+
   const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 
@@ -304,113 +310,120 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
               <div className="bubble-text">{renderMessageText(msg.content)}</div>
             )}
 
-        {/* ── Image ── */}
-        {msg.type === 'image' && (
-          <div className="bubble-img-wrapper">
-            <img
-              src={getCloudinaryThumb(msg.file_url)}
-              alt={msg.file_name}
-              className="bubble-img"
-              onClick={() => setMediaExpanded(true)}
-              loading="lazy"
-            />
-            <a href={msg.file_url} className="bubble-img-dl" onClick={handleDownload} title="Download Image">
-              <Download size={14} />
-            </a>
-            {mediaExpanded && (
-              <FullScreenImageViewer
-                imageUrl={msg.file_url}
-                imageName={msg.file_name}
-                fileType="image"
-                onClose={() => setMediaExpanded(false)}
-              />
+            {/* ── Image ── */}
+            {msg.type === 'image' && (
+              <div className="bubble-img-wrapper">
+                <img
+                  src={getCloudinaryThumb(msg.file_url)}
+                  alt={msg.file_name}
+                  className="bubble-img"
+                  onClick={() => setMediaExpanded(true)}
+                  loading="lazy"
+                />
+                <a href={msg.file_url} className="bubble-img-dl" onClick={handleDownload} title="Download Image">
+                  <Download size={14} />
+                </a>
+                {mediaExpanded && (
+                  <FullScreenImageViewer
+                    imageUrl={msg.file_url}
+                    imageName={msg.file_name}
+                    fileType="image"
+                    onClose={() => setMediaExpanded(false)}
+                  />
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* ── Video / Audio / PDF ── */}
-        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'video' && (
-          <div className="bubble-media-wrapper">
-            <video 
-              src={msg.file_url} 
-              poster={getCloudinaryPoster(msg.file_url)} 
-              controls 
-              preload="none" 
-              className="bubble-video" 
-            />
-            <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
-              <ZoomIn size={14} />
-            </button>
-            {mediaExpanded && (
-              <FullScreenImageViewer
-                imageUrl={msg.file_url}
-                imageName={msg.file_name}
-                fileType="video"
-                onClose={() => setMediaExpanded(false)}
-              />
+            {/* ── Video / Audio / PDF ── */}
+            {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'video' && (
+              <div className="bubble-media-wrapper">
+                <video
+                  src={msg.file_url}
+                  poster={getCloudinaryPoster(msg.file_url)}
+                  controls
+                  preload="none"
+                  className="bubble-video"
+                />
+                <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
+                  <ZoomIn size={14} />
+                </button>
+                {mediaExpanded && (
+                  <FullScreenImageViewer
+                    imageUrl={msg.file_url}
+                    imageName={msg.file_name}
+                    fileType="video"
+                    onClose={() => setMediaExpanded(false)}
+                  />
+                )}
+              </div>
             )}
-          </div>
-        )}
-        
-        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'audio' && (
-          <div className="bubble-media-wrapper bubble-media-wrapper--audio">
-            <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
-            <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
-              <ZoomIn size={14} />
-            </button>
-            {mediaExpanded && (
-              <FullScreenImageViewer
-                imageUrl={msg.file_url}
-                imageName={msg.file_name}
-                fileType="audio"
-                onClose={() => setMediaExpanded(false)}
-              />
-            )}
-          </div>
-        )}
 
-        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'pdf' && (
-          <div className="bubble-media-wrapper">
-            <iframe src={`${msg.file_url}#toolbar=0`} className="bubble-pdf-preview" title="PDF Preview" style={{pointerEvents: 'none'}} />
-            <div style={{display: 'flex', width: '100%'}}>
-              <button onClick={() => setMediaExpanded(true)} className="bubble-pdf-open" style={{borderRight: '1px solid rgba(255,255,255,0.1)'}}>
-                Preview PDF
-              </button>
-              <a href={msg.file_url} target="_blank" rel="noreferrer" className="bubble-pdf-open" title="Open Full PDF">
-                Open Tab
-              </a>
-            </div>
-            {mediaExpanded && (
-              <FullScreenImageViewer
-                imageUrl={msg.file_url}
-                imageName={msg.file_name}
-                fileType="pdf"
-                onClose={() => setMediaExpanded(false)}
-              />
+            {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'audio' && (
+              <div className="bubble-media-wrapper bubble-media-wrapper--audio">
+                <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
+                <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
+                  <ZoomIn size={14} />
+                </button>
+                {mediaExpanded && (
+                  <FullScreenImageViewer
+                    imageUrl={msg.file_url}
+                    imageName={msg.file_name}
+                    fileType="audio"
+                    onClose={() => setMediaExpanded(false)}
+                  />
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* ── Generic File ── */}
-        {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'generic' && (
-          <div className="bubble-file">
-            <File size={15} className="bubble-file-icon" />
-            <div className="bubble-file-info">
-              <span className="bubble-file-name">{msg.file_name}</span>
-              {msg.file_size && (
-                <span className="bubble-file-size">{(msg.file_size / 1024).toFixed(1)} KB</span>
-              )}
-            </div>
-            <button className="bubble-file-dl" onClick={handleDownload} title="Download">
-              <Download size={13} />
-            </button>
-          </div>
-        )}
+            {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'pdf' && (
+              <div className="bubble-media-wrapper">
+                <img 
+                  src={getCloudinaryPdfThumb(msg.file_url)} 
+                  alt={msg.file_name} 
+                  className="bubble-img" 
+                  onClick={() => setMediaExpanded(true)} 
+                  loading="lazy" 
+                  style={{ objectFit: 'contain', width: '100%', maxHeight: '200px', cursor: 'pointer', background: '#fff' }}
+                />
+                <div style={{ display: 'flex', width: '100%' }}>
+                  <button onClick={() => setMediaExpanded(true)} className="bubble-pdf-open" style={{ borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+                    Preview PDF
+                  </button>
+                  <a href={msg.file_url} target="_blank" rel="noreferrer" className="bubble-pdf-open" title="Open Full PDF">
+                    Open Tab
+                  </a>
+                </div>
+                {mediaExpanded && (
+                  <FullScreenImageViewer
+                    imageUrl={msg.file_url}
+                    imageName={msg.file_name}
+                    fileType="pdf"
+                    onClose={() => setMediaExpanded(false)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* ── Generic File ── */}
+            {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'generic' && (
+              <div className="bubble-file">
+                <File size={15} className="bubble-file-icon" />
+                <div className="bubble-file-info">
+                  <span className="bubble-file-name">{msg.file_name}</span>
+                  {msg.file_size && (
+                    <span className="bubble-file-size">{(msg.file_size / 1024).toFixed(1)} KB</span>
+                  )}
+                </div>
+                <button className="bubble-file-dl" onClick={handleDownload} title="Download">
+                  <Download size={13} />
+                </button>
+              </div>
+            )}
           </>
         )}
 
         <span className="bubble-time-float">{formatTime(msg.created_at)}</span>
-        
+
         {/* ── Reactions ── */}
         {msg.reactions && Object.keys(msg.reactions).length > 0 && (
           <div className="bubble-reactions">
@@ -418,15 +431,15 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
               const myId = myRole === 'owner' ? 'owner' : guestId;
               const iReacted = users.includes(myId);
               return (
-                <div 
-                  key={emoji} 
+                <div
+                  key={emoji}
                   className={`bubble-reaction-badge ${iReacted ? 'bubble-reaction-badge--active' : ''}`}
                   onClick={() => handleReactClick(emoji)}
                 >
                   <span className="emoji">{emoji}</span>
                   <span className="count">{users.length}</span>
                   {myRole === 'owner' && (
-                    <button 
+                    <button
                       className="reaction-force-remove"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -460,11 +473,11 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
    - disabled           boolean (if room is expired/revoked)
    ══════════════════════════════════════════════ */
 export default function ChatWindow({
-messages, onSendText, onSendFile,
+  messages, onSendText, onSendFile,
   onDelete, canDelete, onReact, onView, onBurn, loading,
   myRole = 'owner', disabled = false
 }) {
-  const [text, setText]       = useState('');
+  const [text, setText] = useState('');
   const [timerDuration, setTimerDuration] = useState(null); // null = off
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [customTimerInput, setCustomTimerInput] = useState('');
@@ -474,12 +487,12 @@ messages, onSendText, onSendFile,
   const [isDragging, setIsDragging] = useState(false);
   const [previewHeight, setPreviewHeight] = useState(0);
   const [showTimerMenu, setShowTimerMenu] = useState(false);
-  
+
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [voiceNotePreview, setVoiceNotePreview] = useState(null);
-  
+
   const [guestId] = useState(() => {
     let id = localStorage.getItem('ghostvault_guest_id');
     if (!id) {
@@ -491,9 +504,9 @@ messages, onSendText, onSendFile,
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
-  
-  const scrollRef   = useRef(null);
-  const threadRef   = useRef(null);
+
+  const scrollRef = useRef(null);
+  const threadRef = useRef(null);
   const fileInputRef = useRef(null);
   const previewRef = useRef(null);
 
@@ -540,7 +553,7 @@ messages, onSendText, onSendFile,
           // Use Blob and attach a name property to avoid 'new File' constructor crashes on older/mobile browsers
           const audioFile = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           audioFile.name = `voice_note_${Date.now()}.webm`;
-          
+
           stream.getTracks().forEach(track => track.stop());
 
           if (audioFile.size === 0) {
@@ -596,7 +609,7 @@ messages, onSendText, onSendFile,
 
   const handleSend = async () => {
     if (sending || disabled) return;
-    
+
     if (voiceNotePreview) {
       setSending(true);
       await onSendFile(voiceNotePreview.file, timerDuration);
@@ -606,7 +619,7 @@ messages, onSendText, onSendFile,
       setSending(false);
       return;
     }
-    
+
     if (!text.trim() && filePreviews.length === 0) return;
     setSending(true);
 
@@ -687,7 +700,7 @@ messages, onSendText, onSendFile,
     e.stopPropagation();
     setIsDragging(false);
     if (disabled) return;
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files).map(f => ({ file: f, name: f.name }));
       setFilePreviews(prev => [...prev, ...droppedFiles]);
@@ -708,8 +721,8 @@ messages, onSendText, onSendFile,
   };
 
   return (
-    <div 
-      className={`chat-window ${isDragging ? 'chat-window--dragging' : ''}`} 
+    <div
+      className={`chat-window ${isDragging ? 'chat-window--dragging' : ''}`}
       style={{ position: 'relative' }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -747,12 +760,12 @@ messages, onSendText, onSendFile,
           <div className="chat-empty"><div className="spinner" /></div>
         ) : messages.length === 0 ? (
           <div className="chat-empty">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ color:'var(--text-ghost)', marginBottom:8 }}>
-              <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10A8 8 0 0 0 12 2z"/>
-              <circle cx="9" cy="10" r="1" fill="currentColor"/>
-              <circle cx="15" cy="10" r="1" fill="currentColor"/>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ color: 'var(--text-ghost)', marginBottom: 8 }}>
+              <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10A8 8 0 0 0 12 2z" />
+              <circle cx="9" cy="10" r="1" fill="currentColor" />
+              <circle cx="15" cy="10" r="1" fill="currentColor" />
             </svg>
-            <p style={{ fontSize:12, color:'var(--text-ghost)' }}>No messages yet</p>
+            <p style={{ fontSize: 12, color: 'var(--text-ghost)' }}>No messages yet</p>
           </div>
         ) : (
           messages.map((msg, i) => {
@@ -864,7 +877,7 @@ messages, onSendText, onSendFile,
                 </button>
               </div>
             )}
-            
+
             <div className="relative">
               <button
                 className={`chat-timer-toggle ${timerDuration ? 'chat-timer-toggle--active' : ''}`}
@@ -875,7 +888,7 @@ messages, onSendText, onSendFile,
                 <Timer size={16} />
                 {timerDuration && (
                   <span className="chat-timer-badge">
-                    {timerDuration < 60 ? `${timerDuration}s` : timerDuration < 3600 ? `${Math.floor(timerDuration/60)}m` : `${Math.floor(timerDuration/3600)}h`}
+                    {timerDuration < 60 ? `${timerDuration}s` : timerDuration < 3600 ? `${Math.floor(timerDuration / 60)}m` : `${Math.floor(timerDuration / 3600)}h`}
                   </span>
                 )}
               </button>
@@ -889,20 +902,20 @@ messages, onSendText, onSendFile,
                     <button className={`btn btn-sm ${timerDuration === 3600 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(3600); setShowTimerPicker(false); }}>1h</button>
                   </div>
                   <div className="flex gap-2">
-                    <input 
-                      type="number" 
-                      placeholder="Custom (s)" 
+                    <input
+                      type="number"
+                      placeholder="Custom (s)"
                       className="flex-1 bg-bgBase border border-borderBase rounded-md text-xs px-2 py-1 outline-none focus:border-cyan-500 text-textPrimary font-mono w-20"
                       value={customTimerInput}
                       onChange={(e) => setCustomTimerInput(e.target.value)}
                       onKeyDown={(e) => {
-                         if (e.key === 'Enter' && customTimerInput) {
-                           setTimerDuration(parseInt(customTimerInput) || null);
-                           setShowTimerPicker(false);
-                         }
+                        if (e.key === 'Enter' && customTimerInput) {
+                          setTimerDuration(parseInt(customTimerInput) || null);
+                          setShowTimerPicker(false);
+                        }
                       }}
                     />
-                    <button 
+                    <button
                       className="btn btn-primary btn-sm px-3"
                       onClick={() => {
                         if (customTimerInput) setTimerDuration(parseInt(customTimerInput) || null);
@@ -915,7 +928,7 @@ messages, onSendText, onSendFile,
                 </div>
               )}
             </div>
-            
+
             {text.trim() || filePreviews.length > 0 || voiceNotePreview ? (
               <button
                 className="chat-send chat-send--active"
@@ -923,7 +936,7 @@ messages, onSendText, onSendFile,
                 disabled={sending}
                 title="Send"
               >
-                {sending ? <span className="spinner" style={{width:14,height:14}} /> : <Send size={14} />}
+                {sending ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Send size={14} />}
               </button>
             ) : isRecording ? (
               <button
