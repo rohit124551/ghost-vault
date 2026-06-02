@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import FullScreenImageViewer from './FullScreenImageViewer';
 import { copyToClipboard } from '../utils/clipboard';
+import { formatBytes } from '../utils/formatBytes';
 import './ChatWindow.css';
 
 /* ── Helpers ── */
@@ -564,7 +565,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
                 <div className="bubble-file-info">
                   <span className="bubble-file-name">{msg.file_name}</span>
                   {msg.file_size && (
-                    <span className="bubble-file-size">{(msg.file_size / 1024).toFixed(1)} KB</span>
+                    <span className="bubble-file-size">{formatBytes(msg.file_size)}</span>
                   )}
                 </div>
                 <button className="bubble-file-dl" onClick={handleDownload} title="Download">

@@ -5,6 +5,7 @@ import { Terminal, Upload, MessageSquare, HardDrive, X, Ghost, Check, AlertTrian
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../lib/api';
+import { formatBytes } from '../utils/formatBytes';
 
 export default function ShareTargetPage() {
   const navigate = useNavigate();
@@ -174,7 +175,7 @@ export default function ShareTargetPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-textPrimary truncate">{file.name}</div>
-                        <div className="text-[10px] text-textGhost font-mono">{(file.size / 1024).toFixed(1)} KB • {file.type}</div>
+                        <div className="text-[10px] text-textGhost font-mono">{formatBytes(file.size)} • {file.type}</div>
                       </div>
                     </div>
                   ))}
