@@ -303,11 +303,9 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
         className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
         onContextMenu={(e) => {
           e.preventDefault();
-          if (!isBurned) {
-            const spaceBelow = window.innerHeight - e.clientY;
-            setMenuPosition(spaceBelow < 250 ? 'top' : 'bottom');
-            setMenuOpen(true);
-          }
+          const spaceBelow = window.innerHeight - e.clientY;
+          setMenuPosition(spaceBelow < 250 ? 'top' : 'bottom');
+          setMenuOpen(true);
         }}
       >
         {msg.is_pinned && !isBurned && !isBlurred && (
@@ -315,7 +313,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
             <Pin size={10} className="text-cyan-400" />
           </div>
         )}
-        {!isBurned && !isBlurred && (
+        {!isBlurred && (
           <button 
             className="absolute top-1 right-1 opacity-100 md:opacity-0 group-hover:opacity-100 p-1 bg-black/20 hover:bg-black/40 text-white rounded-full transition-opacity z-10 backdrop-blur-sm"
             onClick={(e) => { 
@@ -342,52 +340,58 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
               flex flex-col p-1
             `}
           >
-            {(msg.type === 'image' || msg.type === 'file') && (
+            {!isBurned && (msg.type === 'image' || msg.type === 'file') && (
               <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={(e) => { setMenuOpen(false); setShowEmojiPicker(false); handleDownload(e); }}>
                 <Download size={15} className="text-textGhost" /> Download
               </button>
             )}
-            {onReply && (
+            {!isBurned && onReply && (
               <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); onReply(msg); }}>
                 <Reply size={15} className="text-textGhost" /> Reply
               </button>
             )}
-            <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); handleCopy(); }}>
-              <Copy size={15} className="text-textGhost" /> Copy
-            </button>
+            {!isBurned && (
+              <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); handleCopy(); }}>
+                <Copy size={15} className="text-textGhost" /> Copy
+              </button>
+            )}
             
-            <button 
-              className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors relative"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowEmojiPicker(!showEmojiPicker);
-              }}
-            >
-              <SmilePlus size={15} className="text-textGhost" /> React
-              {showEmojiPicker && (
-                <div className={`absolute ${menuPosition === 'top' ? 'bottom-0' : 'top-0'} ${isMe ? 'right-[105%]' : 'left-[105%]'} bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] rounded-xl p-1.5 flex gap-1 z-50`}>
-                  {QUICK_EMOJIS.map(e => (
-                    <span key={e} className="cursor-pointer hover:bg-bgHover p-1.5 rounded-lg text-lg transition-transform hover:scale-110" onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}>{e}</span>
-                  ))}
-                </div>
-              )}
-            </button>
-            <div className="h-[1px] bg-border my-1 mx-2" />
-            <button
-              className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen(false);
-                if (onPin) onPin(msg.id);
-              }}
-            >
-              {msg.is_pinned ? <PinOff size={15} className="text-textGhost" /> : <Pin size={15} className="text-textGhost" />} 
-              {msg.is_pinned ? 'Unpin' : 'Pin'}
-            </button>
+            {!isBurned && (
+              <button 
+                className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowEmojiPicker(!showEmojiPicker);
+                }}
+              >
+                <SmilePlus size={15} className="text-textGhost" /> React
+                {showEmojiPicker && (
+                  <div className={`absolute ${menuPosition === 'top' ? 'bottom-0' : 'top-0'} ${isMe ? 'right-[105%]' : 'left-[105%]'} bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] rounded-xl p-1.5 flex gap-1 z-50`}>
+                    {QUICK_EMOJIS.map(e => (
+                      <span key={e} className="cursor-pointer hover:bg-bgHover p-1.5 rounded-lg text-lg transition-transform hover:scale-110" onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}>{e}</span>
+                    ))}
+                  </div>
+                )}
+              </button>
+            )}
+            {!isBurned && <div className="h-[1px] bg-border my-1 mx-2" />}
+            {!isBurned && (
+              <button
+                className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  if (onPin) onPin(msg.id);
+                }}
+              >
+                {msg.is_pinned ? <PinOff size={15} className="text-textGhost" /> : <Pin size={15} className="text-textGhost" />} 
+                {msg.is_pinned ? 'Unpin' : 'Pin'}
+              </button>
+            )}
 
             {canDelete && myRole === 'owner' && (
               <>
-                <div className="h-[1px] bg-border my-1 mx-2" />
+                {!isBurned && <div className="h-[1px] bg-border my-1 mx-2" />}
                 <button 
                   className="flex items-center gap-3 px-3 py-2 hover:bg-danger/10 rounded-lg text-sm text-danger text-left transition-colors" 
                   onClick={(e) => { 
