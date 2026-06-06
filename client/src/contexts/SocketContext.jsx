@@ -25,7 +25,10 @@ export function SocketProvider({ children }) {
       }
     });
 
-    socket.on('disconnect', () => setConnected(false));
+    socket.on('disconnect', () => {
+      setConnected(false);
+      window.dispatchEvent(new Event('sv:force-health-check'));
+    });
 
     socketRef.current = socket;
     return () => socket.disconnect();

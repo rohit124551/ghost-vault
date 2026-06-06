@@ -75,7 +75,7 @@ export default function App() {
   // 1. Not on landing page AND (Logged in OR Guest Room)
   const shouldPing = !isLandingPage && (!!user || isGuestRoom);
   
-  const { awake, checking } = useServerHealth(shouldPing);
+  const { awake, showDialog } = useServerHealth(shouldPing);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function App() {
       <InstallPrompt />
       
       {/* Show wake-up screen while server is starting as an overlay */}
-      {shouldPing && (checking || !awake) && <ServerWakeUp />}
+      {shouldPing && showDialog && <ServerWakeUp />}
 
       <Routes>
         <Route path="/login"         element={user ? <Navigate to="/dash" /> : <LoginPage />} />

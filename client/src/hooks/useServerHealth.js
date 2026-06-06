@@ -12,23 +12,22 @@ const SESSION_KEY = 'sv_server_awake';
  */
 export function useServerHealth(enabled = true) {
   const [awake, setAwake] = useState(() => !!sessionStorage.getItem(SESSION_KEY));
-  const [checking, setChecking] = useState(() => !sessionStorage.getItem(SESSION_KEY) && enabled);
+  const [showDialog, setShowDialog] = useState(false);
 
   useEffect(() => {
     if (!enabled || awake) {
-      if (!enabled) setChecking(false);
+      if (!enabled) setShowDialog(false);
       return;
     }
 
-    // If we're here, we need to check
-    setChecking(true);
     let cancelled = false;
     let pollTimer = null;
 
-    async function ping() {
+    async function ping(isFirstPing) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4000);
+        // The first ping gets 1.5s before we declare it "asleep" and show the dialog
+        const timeout = setTimeout(() => controller.abort(), isFirstPing ? 1500 : 4000);
         const res = await fetch(HEALTH_URL, { signal: controller.signal });
         clearTimeout(timeout);
         
@@ -37,27 +36,50 @@ export function useServerHealth(enabled = true) {
         if (res.ok && data.status === 'ok' && !cancelled) {
           sessionStorage.setItem(SESSION_KEY, '1');
           setAwake(true);
-          setChecking(false);
+          setShowDialog(false);
         } else if (!cancelled) {
-          // Server not ready or invalid response — keep polling
-          setChecking(false);
-          pollTimer = setTimeout(ping, 3000);
+          setShowDialog(true);
+          pollTimer = setTimeout(() => ping(false), 3000);
         }
       } catch {
-        // Network error or timeout — keep polling
         if (!cancelled) {
-          setChecking(false);
-          pollTimer = setTimeout(ping, 3000);
+          setShowDialog(true);
+          pollTimer = setTimeout(() => ping(false), 3000);
         }
       }
     }
 
-    ping();
+    ping(true);
+
+    const forceCheck = async () => {
+      if (!awake) return;
+      
+      // Silent 1.5s background check before showing dialog
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1500);
+        const res = await fetch(HEALTH_URL, { signal: controller.signal });
+        clearTimeout(timeout);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.status === 'ok') return; // It's just a network blip, server is alive!
+      } catch {}
+      
+      if (!cancelled) {
+        sessionStorage.removeItem(SESSION_KEY);
+        setAwake(false);
+        setShowDialog(true);
+        ping(false); // start continuous polling
+      }
+    };
+
+    window.addEventListener('sv:force-health-check', forceCheck);
+
     return () => {
       cancelled = true;
       clearTimeout(pollTimer);
+      window.removeEventListener('sv:force-health-check', forceCheck);
     };
   }, [enabled, awake]);
 
-  return { awake, checking };
+  return { awake, showDialog };
 }

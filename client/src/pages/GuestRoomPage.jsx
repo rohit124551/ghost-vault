@@ -251,6 +251,10 @@ export default function GuestRoomPage() {
       }
     });
 
+    s.on('disconnect', () => {
+      window.dispatchEvent(new Event('sv:force-health-check'));
+    });
+
     return () => s.disconnect();
   }, [token, navigate]);
 
