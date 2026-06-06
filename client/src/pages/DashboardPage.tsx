@@ -654,44 +654,46 @@ function RoomRow({ room, onQR, onRevoke, onPermanentDelete, onChat, onEdit, isSe
       animate={{ opacity: 1, x: 0 }}
       className={`flex items-center justify-between p-3 border border-borderBase rounded-sm mb-2 transition-all hover:bg-bgHover hover:border-borderActive ${isSelected ? 'bg-accent/10 border-accent/30' : 'bg-bgBase'} ${!active ? 'opacity-50 border-dashed' : ''}`}
     >
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <div className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-success animate-pulse' : 'bg-textGhost'}`} />
-          <span className="font-mono text-sm font-semibold text-textPrimary tracking-widest">{room.token}</span>
-          {room.note && <span className="font-mono text-[10px] text-textSecondary bg-bgCard border border-borderBase px-2 py-0.5 rounded-sm truncate max-w-[120px] md:max-w-[200px]" title={room.note}>{room.note}</span>}
+      <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-success animate-pulse' : 'bg-textGhost'}`} />
+          <span className="font-mono text-sm font-semibold text-textPrimary tracking-widest truncate shrink-0 max-w-[100px] md:max-w-none">{room.token}</span>
+          {room.note && <span className="font-mono text-[10px] text-textSecondary bg-bgCard border border-borderBase px-2 py-0.5 rounded-sm truncate" title={room.note}>{room.note}</span>}
         </div>
-        <div className="flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-widest">
-          {room.view_once && <span className="flex items-center gap-1 text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-sm"><Eye size={10} /> BURN</span>}
+        <div className="flex items-center gap-2 text-[10px] font-mono font-bold uppercase tracking-widest truncate">
+          {room.view_once && <span className="flex items-center gap-1 text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-sm shrink-0"><Eye size={10} /> BURN</span>}
           {active ? (
-            countdown && <span className="flex items-center gap-1 text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded-sm"><Timer size={10} /> {countdown}</span>
+            countdown && <span className="flex items-center gap-1 text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded-sm shrink-0"><Timer size={10} /> {countdown}</span>
           ) : (
-            <span className="text-textGhost bg-bgCard px-1.5 py-0.5 border border-borderBase rounded-sm">KILLED</span>
+            <span className="text-textGhost bg-bgCard px-1.5 py-0.5 border border-borderBase rounded-sm shrink-0">KILLED</span>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={onChat} title="Terminal"><MessageSquare size={14} /></button>
-        <button className="p-2 text-textSecondary hover:text-purple-400 hover:bg-purple-400/10 rounded-sm transition-colors border border-transparent hover:border-purple-400/20" onClick={onEdit} title="Edit Tunnel"><Pencil size={14} /></button>
+      <div className="flex items-center gap-1 shrink-0">
+        <button className="p-2 text-textSecondary hover:text-cyan-400 hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase shrink-0" onClick={onChat} title="Terminal"><MessageSquare size={14} /></button>
+        <button className="p-2 text-textSecondary hover:text-purple-400 hover:bg-purple-400/10 rounded-sm transition-colors border border-transparent hover:border-purple-400/20 shrink-0" onClick={onEdit} title="Edit Tunnel"><Pencil size={14} /></button>
         {active && (
           <>
-            <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase" onClick={onQR} title="QR"><QrCode size={14} /></button>
+            <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgCard rounded-sm transition-colors border border-transparent hover:border-borderBase shrink-0" onClick={onQR} title="QR"><QrCode size={14} /></button>
             <button
-              className={`p-2 rounded-sm transition-colors border border-transparent ${confirmRevoke ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-textSecondary hover:text-amber-500 hover:bg-amber-500/10 hover:border-amber-500/20'}`}
+              className={`p-2 rounded-sm transition-colors border border-transparent shrink-0 ${confirmRevoke ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 'text-textSecondary hover:text-amber-500 hover:bg-amber-500/10 hover:border-amber-500/20'}`}
               onClick={handleRevoke}
               title={confirmRevoke ? 'Confirm Kill' : 'Kill Room'}
             >
-              {confirmRevoke ? <span className="text-[10px] font-bold font-mono px-1">SURE?</span> : <X size={14} />}
+              {confirmRevoke ? <span className="text-[10px] font-bold font-mono px-1 shrink-0">SURE?</span> : <X size={14} className="shrink-0" />}
             </button>
           </>
         )}
-        <button
-          className={`p-2 rounded-sm transition-colors border border-transparent ${confirmDelete ? 'text-danger bg-danger/10 border-danger/20' : 'text-textSecondary hover:text-danger hover:bg-danger/10 hover:border-danger/20'}`}
-          onClick={handleDelete}
-          title={confirmDelete ? 'Confirm Purge' : 'Purge DB'}
-        >
-          {confirmDelete ? <span className="text-[10px] font-bold font-mono px-1">PURGE?</span> : <Trash2 size={14} />}
-        </button>
+        {!active && (
+          <button
+            className={`p-2 rounded-sm transition-colors border border-transparent shrink-0 ${confirmDelete ? 'text-danger bg-danger/10 border-danger/20' : 'text-textSecondary hover:text-danger hover:bg-danger/10 hover:border-danger/20'}`}
+            onClick={handleDelete}
+            title={confirmDelete ? 'Confirm Purge' : 'Purge DB'}
+          >
+            {confirmDelete ? <span className="text-[10px] font-bold font-mono px-1 shrink-0">PURGE?</span> : <Trash2 size={14} className="shrink-0" />}
+          </button>
+        )}
       </div>
     </motion.div>
   );
@@ -706,7 +708,7 @@ function CompactRoomRow({ room, onQR, onRevoke, onTogglePause, onPermanentDelete
       className={`group flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer mb-1 ${isSelected ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-transparent border-transparent hover:bg-bgHover'}`}
       onClick={onChat}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0 pr-2">
         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-success animate-pulse' : 'bg-amber-500'}`} />
         <div className="flex flex-col min-w-0">
           <span className={`font-mono text-xs font-bold tracking-widest truncate ${isSelected ? 'text-accent' : 'text-textPrimary'}`}>{room.token}</span>
@@ -714,30 +716,32 @@ function CompactRoomRow({ room, onQR, onRevoke, onTogglePause, onPermanentDelete
         </div>
       </div>
 
-      <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-        <button className="p-1.5 text-textGhost hover:text-purple-400 transition-colors" onClick={(e) => { e.stopPropagation(); onEdit?.(); }} title="Edit"><Pencil size={11} /></button>
+      <div className="flex items-center gap-0.5 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <button className="p-1.5 text-textGhost hover:text-purple-400 transition-colors shrink-0" onClick={(e) => { e.stopPropagation(); onEdit?.(); }} title="Edit"><Pencil size={11} /></button>
         {active && (
           <>
-            <button className="p-1.5 text-textGhost hover:text-textPrimary transition-colors" onClick={(e) => { e.stopPropagation(); onQR(); }} title="QR Code"><QrCode size={12} /></button>
+            <button className="p-1.5 text-textGhost hover:text-textPrimary transition-colors shrink-0" onClick={(e) => { e.stopPropagation(); onQR(); }} title="QR Code"><QrCode size={12} /></button>
             {room.is_paused ? (
-              <button className="p-1.5 text-textGhost hover:text-success transition-colors" onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }} title="Resume Tunnel"><Play size={12} /></button>
+              <button className="p-1.5 text-textGhost hover:text-success transition-colors shrink-0" onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }} title="Resume Tunnel"><Play size={12} /></button>
             ) : (
-              <button className="p-1.5 text-textGhost hover:text-amber-500 transition-colors" onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }} title="Pause Tunnel"><Pause size={12} /></button>
+              <button className="p-1.5 text-textGhost hover:text-amber-500 transition-colors shrink-0" onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }} title="Pause Tunnel"><Pause size={12} /></button>
             )}
-            <button className="p-1.5 text-textGhost hover:text-danger transition-colors" onClick={(e) => { e.stopPropagation(); onRevoke?.(); }} title="Kill Tunnel"><X size={12} /></button>
+            <button className="p-1.5 text-textGhost hover:text-danger transition-colors shrink-0" onClick={(e) => { e.stopPropagation(); onRevoke?.(); }} title="Kill Tunnel"><X size={12} /></button>
           </>
         )}
-        <button
-          className={`p-1.5 transition-colors ${confirmDelete ? 'text-danger animate-pulse' : 'text-textGhost hover:text-danger'}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 2000); }
-            else onPermanentDelete();
-          }}
-          title="Delete Permanently"
-        >
-          <Trash2 size={12} />
-        </button>
+        {!active && (
+          <button
+            className={`p-1.5 transition-colors shrink-0 ${confirmDelete ? 'text-danger animate-pulse' : 'text-textGhost hover:text-danger'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 2000); }
+              else onPermanentDelete();
+            }}
+            title="Delete Permanently"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1393,10 +1397,6 @@ export default function DashboardPage() {
               </div>
 
               <div className="grid grid-cols-5 gap-3 mb-8">
-                <button onClick={() => { setSidebarOpen(false); navigate('/', { state: { fromSidebar: true } }); }} className="flex flex-col items-center justify-center gap-3 p-3 rounded-2xl transition-colors bg-bgBase text-textSecondary hover:text-textPrimary border border-borderBase">
-                  <Home size={24} />
-                  <span className="text-[10px] font-bold">Home</span>
-                </button>
                 <button onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} className={`flex flex-col items-center justify-center gap-3 p-3 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-accent/10 text-accent' : 'bg-bgBase text-textSecondary hover:text-textPrimary border border-borderBase'}`}>
                   <Activity size={24} />
                   <span className="text-[10px] font-bold">Dash</span>
@@ -1413,6 +1413,10 @@ export default function DashboardPage() {
                   <Bug size={24} />
                   <span className="text-[10px] font-bold">Bugs</span>
                   {bugReports.length > 0 && <span className="absolute top-1 right-1 w-4 h-4 text-[8px] flex items-center justify-center bg-purple-500 text-white rounded-full font-bold">{bugReports.length > 9 ? '9+' : bugReports.length}</span>}
+                </button>
+                <button onClick={() => { setSidebarOpen(false); navigate('/', { state: { fromSidebar: true } }); }} className="flex flex-col items-center justify-center gap-3 p-3 rounded-2xl transition-colors bg-bgBase text-textSecondary hover:text-textPrimary border border-borderBase">
+                  <Info size={24} />
+                  <span className="text-[10px] font-bold">About</span>
                 </button>
               </div>
 

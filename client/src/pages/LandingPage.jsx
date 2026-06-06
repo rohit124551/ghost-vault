@@ -41,15 +41,15 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-bgBase text-textPrimary font-ui flex flex-col">
       {/* Navbar */}
-      <nav className="w-full h-16 md:h-20 px-6 md:px-12 flex items-center justify-between border-b border-borderBase bg-bgCard/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <GhostLogo className="w-7 h-7 text-cyan-400 animate-float" />
+      <nav className="w-full h-16 md:h-20 px-4 md:px-12 flex items-center justify-between border-b border-borderBase bg-bgCard/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-2 md:gap-3">
+          <GhostLogo className="w-6 h-6 md:w-7 md:h-7 text-cyan-400 animate-float flex-shrink-0" />
           <div>
-            <div className="font-display font-bold tracking-wide text-base md:text-lg leading-tight">GhostVault</div>
+            <div className="font-display font-bold tracking-wide text-sm md:text-lg leading-tight">GhostVault</div>
             <div className="text-[9px] text-cyan-400 font-mono uppercase tracking-widest leading-none hidden md:block">Sec_Ops Console</div>
           </div>
         </div>
-        <div className="flex items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-3 md:gap-6">
           {/* Desktop links */}
           <div className="hidden md:flex items-center gap-5 text-textGhost border-r border-borderBase pr-6">
             <button onClick={toggleTheme} className="hover:text-textPrimary transition-colors" title="Toggle Theme">
@@ -63,17 +63,21 @@ export default function LandingPage() {
             </a>
           </div>
           {user ? (
-            <Link to="/dash" className="px-4 md:px-5 py-2 md:py-2.5 rounded-sm bg-accent text-white font-mono font-bold text-sm hover:bg-accentHover transition-colors shadow-lg flex items-center gap-2">
-              Command Center <ArrowRight size={16} />
+            <Link to="/dash" className="px-3 md:px-5 py-1.5 md:py-2.5 rounded-sm bg-accent text-white font-mono font-bold text-xs md:text-sm hover:bg-accentHover transition-colors shadow-lg flex items-center gap-1 md:gap-2 whitespace-nowrap">
+              <span className="hidden sm:inline">Command Center</span>
+              <span className="sm:hidden">Console</span>
+              <ArrowRight size={14} className="md:w-4 md:h-4" />
             </Link>
           ) : (
-            <Link to="/login" className="px-4 md:px-5 py-2 md:py-2.5 rounded-sm border border-borderActive text-textPrimary font-mono font-bold text-sm hover:bg-bgHover transition-colors flex items-center gap-2">
-              System Login <ArrowRight size={16} />
+            <Link to="/login" className="px-3 md:px-5 py-1.5 md:py-2.5 rounded-sm border border-borderActive text-textPrimary font-mono font-bold text-xs md:text-sm hover:bg-bgHover transition-colors flex items-center gap-1 md:gap-2 whitespace-nowrap">
+              <span className="hidden sm:inline">System Login</span>
+              <span className="sm:hidden">Login</span>
+              <ArrowRight size={14} className="md:w-4 md:h-4" />
             </Link>
           )}
           {/* Mobile theme toggle */}
-          <button onClick={toggleTheme} className="md:hidden text-textGhost hover:text-textPrimary transition-colors" title="Toggle Theme">
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          <button onClick={toggleTheme} className="md:hidden text-textGhost hover:text-textPrimary transition-colors flex-shrink-0" title="Toggle Theme">
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
       </nav>
@@ -83,11 +87,12 @@ export default function LandingPage() {
         <div className="max-w-4xl w-full text-center mb-16">
           
           {/* Cyber Terminal Connection Banner */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-bgHover/50 border border-borderActive text-xs md:text-sm font-mono text-cyan-400 mb-8 shadow-sm">
-            <Terminal size={14} className="text-textSecondary" />
-            <span className="text-textSecondary">SECURE_LINK_ESTABLISHED:</span>
-            <span className="font-bold tracking-widest">{clientIp}</span>
-            <div className="w-2 h-2 rounded-full bg-accent animate-pulse ml-2 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+          <div className="inline-flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-bgHover/50 border border-borderActive text-[10px] sm:text-xs md:text-sm font-mono text-cyan-400 mb-8 shadow-sm whitespace-nowrap max-w-[90vw]">
+            <Terminal size={14} className="text-textSecondary flex-shrink-0" />
+            <span className="text-textSecondary hidden sm:inline">SECURE_LINK_ESTABLISHED:</span>
+            <span className="text-textSecondary sm:hidden">LINK_ESTABLISHED:</span>
+            <span className="font-bold tracking-wider sm:tracking-widest flex-shrink-0">{clientIp}</span>
+            <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-accent animate-pulse ml-1 md:ml-2 shadow-[0_0_8px_rgba(16,185,129,0.8)] flex-shrink-0"></div>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight mb-6 text-textPrimary h-16 md:h-20">
