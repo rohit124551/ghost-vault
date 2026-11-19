@@ -263,6 +263,61 @@ router.post('/:id/burn', async (req, res, next) => {
   }
 });
 
+// POST /api/rooms/:token/messages/batch-delete — owner batch deletes multiple messages
+router.post('/batch-delete', requireOwner, async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array required' });
+    }
+
+    // 1. Fetch messages first to clean up any Cloudinary files
+    const { data: msgs, error: fetchErr } = await supabase
+      .from('messages')
+      .select('id, file_url, file_name, type')
+      .in('id', ids)
+      .eq('room_id', req.room.id);
+
+    if (!fetchErr && Array.isArray(msgs)) {
+      for (const msg of msgs) {
+        if (msg.file_url) {
+          const parts = msg.file_url.split('/upload/');
+          if (parts.length > 1) {
+            let path = parts[1];
+            if (path.match(/^v\d+\//)) path = path.replace(/^v\d+\//, '');
+            const lastDot = path.lastIndexOf('.');
+            if (lastDot > -1) path = path.substring(0, lastDot);
+            const ext = (msg.file_name || '').split('.').pop().toLowerCase();
+            await deleteFromCloudinary(path, ext || msg.type).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // 2. Delete all requested messages belonging to this room
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .in('id', ids)
+      .eq('room_id', req.room.id);
+
+    if (error) throw error;
+
+    // 3. Emit real-time socket events
+    const io = req.app.get('io');
+    await broadcastRoomEvent(io, token, 'messages_batch_deleted', { ids, roomToken: token });
+    for (const id of ids) {
+      await broadcastRoomEvent(io, token, 'message_deleted', { id, roomToken: token });
+    }
+
+    res.json({ success: true, count: ids.length, ids });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /api/rooms/:token/messages/:id — owner deletes a message
 router.delete('/:id', requireOwner, async (req, res, next) => {
   try {

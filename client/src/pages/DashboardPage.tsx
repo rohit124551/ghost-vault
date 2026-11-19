@@ -1498,10 +1498,17 @@ export default function DashboardPage() {
       }
     };
 
+    const onMessagesBatchDeleted = ({ ids, roomToken }: any) => {
+      if (chatRoom && roomToken === chatRoom.token && Array.isArray(ids)) {
+        setChatMessages(prev => prev.filter(m => !ids.includes(m.id)));
+      }
+    };
+
     socket.on('new_file', onFile);
     socket.on('new_message', onMessage);
     socket.on('room_revoked', onRevoked);
     socket.on('message_deleted', onMessageDeleted);
+    socket.on('messages_batch_deleted', onMessagesBatchDeleted);
     socket.on('message_reacted', onMessageReacted);
     socket.on('room_updated', onRoomUpdated);
     socket.on('message_viewed', onMessageViewed);
@@ -1512,6 +1519,7 @@ export default function DashboardPage() {
       socket.off('new_message', onMessage);
       socket.off('room_revoked', onRevoked);
       socket.off('message_deleted', onMessageDeleted);
+      socket.off('messages_batch_deleted', onMessagesBatchDeleted);
       socket.off('message_reacted', onMessageReacted);
       socket.off('room_updated', onRoomUpdated);
       socket.off('message_viewed', onMessageViewed);
@@ -1790,6 +1798,19 @@ export default function DashboardPage() {
       toast.success('Message deleted');
     } catch {
       toast.error('Failed to delete message');
+      return false;
+    }
+  };
+
+  const handleBatchDeleteMessages = async (ids: string[]) => {
+    if (!chatRoom || !ids.length) return false;
+    try {
+      await api.post(`/api/rooms/${chatRoom.token}/messages/batch-delete`, { ids });
+      setChatMessages(prev => prev.filter(m => !ids.includes(m.id)));
+      toast.success(`${ids.length} message${ids.length > 1 ? 's' : ''} deleted`);
+      return true;
+    } catch {
+      toast.error('Failed to delete messages');
       return false;
     }
   };
@@ -2459,6 +2480,7 @@ export default function DashboardPage() {
                         onSendText={handleOwnerSendText}
                         onSendFile={handleOwnerSendFile}
                         onDelete={handleDeleteMessage}
+                        onBatchDelete={handleBatchDeleteMessages}
                         onReact={handleReact}
                         onView={handleViewMessage}
                         onBurn={handleBurnMessage}

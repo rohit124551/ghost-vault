@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff, Clock } from 'lucide-react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, CheckSquare, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff, Clock, Trash2 } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -352,7 +352,11 @@ function ApiEventCard({ event, createdAt }) {
 }
 
 /* ── Message Bubble ── */
-function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages }) {
+function MessageBubble({ 
+  msg, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages,
+  isClusterStart = true, isClusterEnd = true, isClusterMiddle = false,
+  isSelectionMode = false, isSelected = false, onToggleSelect
+}) {
   const [mediaExpanded, setMediaExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirmAction, confirmationDialog] = useConfirmAction();
@@ -360,10 +364,12 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
   const [timeLeft, setTimeLeft] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState('bottom');
+  const [quickHeartAnim, setQuickHeartAnim] = useState(false);
   
-  // Swipe to reply state
+  // Swipe to reply & long-press select state
   const [swipeOffset, setSwipeOffset] = useState(0);
   const touchStartRef = useRef(null);
+  const longPressTimerRef = useRef(null);
   
   const menuRef = useRef(null);
   const isMe = msg.sender === myRole;
@@ -459,19 +465,29 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
 
   const handleTouchStart = (e) => {
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (onToggleSelect) {
+      longPressTimerRef.current = setTimeout(() => {
+        onToggleSelect(msg.id);
+        if (navigator.vibrate) navigator.vibrate(40);
+      }, 500);
+    }
   };
 
   const handleTouchMove = (e) => {
-    if (!touchStartRef.current || !onReply) return;
+    if (!touchStartRef.current) return;
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
     const diffX = currentX - touchStartRef.current.x;
     const diffY = currentY - touchStartRef.current.y;
     
-    // Only process horizontal swipe if it's more significant than vertical scroll
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
-      // For both mine and theirs, we can swipe left or right, let's say always swipe right to reply, or left to reply.
-      // WhatsApp standard: swipe right to reply to any message.
+    if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+
+    if (!isSelectionMode && onReply && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
       if (diffX > 0 && diffX < 80) {
         setSwipeOffset(diffX);
       }
@@ -479,20 +495,46 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
   };
 
   const handleTouchEnd = () => {
-    if (swipeOffset > 50 && onReply) {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (swipeOffset > 50 && onReply && !isSelectionMode) {
       onReply(msg);
     }
     setSwipeOffset(0);
     touchStartRef.current = null;
   };
 
+  const handleQuickHeart = () => {
+    setQuickHeartAnim(true);
+    setTimeout(() => setQuickHeartAnim(false), 700);
+    if (onReact) onReact(msg.id, '❤️', false);
+  };
+
   const isBurned = msg.type === 'burned' || timeLeft === 0;
   const isBlurred = !isMe && msg.burn_after_seconds && !msg.viewed_at && !isBurned;
+
+  const clusterClass = isClusterStart && isClusterEnd 
+    ? 'bubble--single' 
+    : isClusterStart 
+      ? 'bubble--cluster-start' 
+      : isClusterEnd 
+        ? 'bubble--cluster-end' 
+        : 'bubble--cluster-mid';
+
+  const rowClusterClass = !isClusterEnd ? 'bubble-row--clustered' : 'bubble-row--cluster-last';
 
   return (
     <div 
       id={`msg-${msg.id}`} 
-      className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'}`}
+      className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'} ${rowClusterClass}`}
+      onClick={(e) => {
+        if (isSelectionMode && onToggleSelect) {
+          e.stopPropagation();
+          onToggleSelect(msg.id);
+        }
+      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -505,15 +547,25 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
         </div>
       )}
 
-      {/* Avatar — shown for other person only */}
+      {/* Avatar — shown for other person on cluster start, or spacer for alignment */}
       {!isMe && (
-        <div className={`bubble-avatar ${isApiMessage ? 'bubble-avatar--api' : ''}`} style={{ background: isApiMessage ? '#10b981' : getAvatarColor(msg.sender) }}>
-          {isApiMessage ? '📡' : msg.sender === 'owner' ? 'O' : 'G'}
-        </div>
+        isClusterStart ? (
+          <div className={`bubble-avatar ${isApiMessage ? 'bubble-avatar--api' : ''}`} style={{ background: isApiMessage ? '#10b981' : getAvatarColor(msg.sender) }}>
+            {isApiMessage ? '📡' : msg.sender === 'owner' ? 'O' : 'G'}
+          </div>
+        ) : (
+          <div className="bubble-avatar bubble-avatar--spacer" />
+        )
       )}
       <div 
-        className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isApiMessage ? 'bubble--api' : ''}
+        className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${clusterClass} ${isApiMessage ? 'bubble--api' : ''}
 ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          if (!isSelectionMode && !isBurned) {
+            handleQuickHeart();
+          }
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           const spaceBelow = window.innerHeight - e.clientY;
@@ -521,6 +573,11 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
           setMenuOpen(true);
         }}
       >
+        {quickHeartAnim && (
+          <div className="quick-heart-popup" aria-hidden="true">
+            ❤️
+          </div>
+        )}
         {confirmationDialog}
         {msg.is_pinned && !isBurned && !isBlurred && (
           <div className="absolute -top-2 -left-2 bg-bgCard border border-cyan-500/30 rounded-full p-1 shadow-md z-10" title="Pinned">
@@ -554,6 +611,19 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
               flex flex-col p-1
             `}
           >
+            {!isBurned && onToggleSelect && (
+              <button 
+                className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  setMenuOpen(false); 
+                  setShowEmojiPicker(false); 
+                  onToggleSelect(msg.id); 
+                }}
+              >
+                <CheckSquare size={15} className="text-textGhost" /> Select
+              </button>
+            )}
             {!isBurned && (msg.type === 'image' || msg.type === 'file') && (
               <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={(e) => { setMenuOpen(false); setShowEmojiPicker(false); handleDownload(e); }}>
                 <Download size={15} className="text-textGhost" /> Download
@@ -641,12 +711,14 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
           })()
         )}
         
-        {/* Sender name only — no actions here anymore */}
-        {!apiEvent && (
+        {/* Sender name only for incoming messages on cluster start (or burn timer if active) */}
+        {!apiEvent && ((!isMe && isClusterStart) || (msg.burn_after_seconds && !isBurned)) && (
           <div className="bubble-meta">
-            <span className="bubble-sender">
-              {isApiMessage ? '📡 API' : isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
-            </span>
+            {!isMe && isClusterStart && (
+              <span className="bubble-sender">
+                {isApiMessage ? '📡 API' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
+              </span>
+            )}
             {msg.burn_after_seconds && !isBurned && (
               <span className="bubble-timer-badge">
                 <Timer size={10} />
@@ -842,8 +914,8 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
    ══════════════════════════════════════════════ */
 export default function ChatWindow({
   messages, onSendText, onSendFile,
-  onDelete, canDelete, onReact, onView, onBurn, onPin, loading,
-  myRole = 'owner', disabled = false
+  onDelete, onBatchDelete, canDelete, onReact, onView, onBurn, onPin, loading,
+  myRole = 'owner', disabled = false, audience
 }) {
   const [text, setText] = useState('');
   const [timerDuration, setTimerDuration] = useState(null); // null = off
@@ -857,6 +929,68 @@ export default function ChatWindow({
   const [previewHeight, setPreviewHeight] = useState(0);
   const [showTimerMenu, setShowTimerMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
+
+  // Multi-message Selection & Batch Action State (WhatsApp-style)
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [batchConfirmAction, batchConfirmationDialog] = useConfirmAction();
+
+  const toggleSelectMessage = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === displayedMessages.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(displayedMessages.map(m => m.id).filter(Boolean));
+    }
+  };
+
+  const handleBatchCopy = () => {
+    const selectedMsgs = (messages || [])
+      .filter(m => selectedIds.includes(m.id))
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    
+    if (selectedMsgs.length === 0) return;
+    
+    const textToCopy = selectedMsgs.map(m => {
+      const sender = m.sender === 'api' ? '[API]' : m.sender === myRole ? '[You]' : `[${m.sender === 'owner' ? 'Owner' : 'Guest'}]`;
+      const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const content = m.type === 'text' ? m.content : (m.file_name || m.file_url || `[${m.type}]`);
+      return `${sender} ${time}: ${content}`;
+    }).join('\n');
+
+    copyToClipboard(textToCopy, `Copied ${selectedMsgs.length} message${selectedMsgs.length > 1 ? 's' : ''}`);
+    setSelectedIds([]);
+  };
+
+  const handleBatchDelete = () => {
+    if (!canDelete || !onBatchDelete || selectedIds.length === 0) return;
+    batchConfirmAction({
+      title: `Delete ${selectedIds.length} message${selectedIds.length > 1 ? 's' : ''}?`,
+      item: `${selectedIds.length} messages`,
+      description: 'This permanently removes the selected messages from this conversation for everyone. This cannot be undone.',
+      label: `Delete ${selectedIds.length} messages`,
+      action: async () => {
+        const ok = await onBatchDelete(selectedIds);
+        if (ok !== false) {
+          setSelectedIds([]);
+        }
+      },
+    });
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && selectedIds.length > 0) {
+        setSelectedIds([]);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedIds.length]);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -1170,6 +1304,57 @@ export default function ChatWindow({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {batchConfirmationDialog}
+
+      {/* ── Selection Action Bar (WhatsApp Style) ── */}
+      {selectedIds.length > 0 && (
+        <div className="chat-selection-bar">
+          <div className="chat-selection-left">
+            <button 
+              type="button"
+              className="chat-selection-btn chat-selection-btn--close" 
+              onClick={() => setSelectedIds([])} 
+              title="Cancel selection"
+            >
+              <X size={18} />
+            </button>
+            <span className="chat-selection-count">
+              {selectedIds.length} selected
+            </span>
+          </div>
+          <div className="chat-selection-actions">
+            <button 
+              type="button"
+              className="chat-selection-action-btn"
+              onClick={handleSelectAll}
+              title={selectedIds.length === displayedMessages.length ? 'Deselect all' : 'Select all'}
+            >
+              {selectedIds.length === displayedMessages.length ? 'Deselect All' : 'Select All'}
+            </button>
+            <button 
+              type="button"
+              className="chat-selection-action-btn"
+              onClick={handleBatchCopy}
+              title="Copy selected messages"
+            >
+              <Copy size={14} />
+              <span className="hidden sm:inline">Copy</span>
+            </button>
+            {canDelete && myRole === 'owner' && onBatchDelete && (
+              <button 
+                type="button"
+                className="chat-selection-action-btn chat-selection-action-btn--delete"
+                onClick={handleBatchDelete}
+                title="Delete selected messages"
+              >
+                <Trash2 size={14} />
+                <span>Delete ({selectedIds.length})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {isDragging && (
         <div className="chat-drag-overlay">
           <div className="chat-drag-content">
@@ -1329,6 +1514,8 @@ export default function ChatWindow({
         ) : (
           displayedMessages.map((msg, i) => {
             const prevMsg = i > 0 ? displayedMessages[i - 1] : null;
+            const nextMsg = i < displayedMessages.length - 1 ? displayedMessages[i + 1] : null;
+
             let showDate = false;
             if (!prevMsg) {
               showDate = true;
@@ -1340,6 +1527,25 @@ export default function ChatWindow({
               }
             }
 
+            const nextShowDate = nextMsg && (new Date(nextMsg.created_at).toDateString() !== new Date(msg.created_at).toDateString());
+
+            // Same sender within 2 minutes (120000ms), uninterrupted by date separators or API events
+            const isSameSenderPrev = !showDate && prevMsg && (prevMsg.sender === msg.sender) && 
+              (Math.abs(new Date(msg.created_at) - new Date(prevMsg.created_at)) < 120000) &&
+              msg.sender !== 'api' && prevMsg.sender !== 'api';
+
+            const isSameSenderNext = !nextShowDate && nextMsg && (nextMsg.sender === msg.sender) &&
+              (Math.abs(new Date(nextMsg.created_at) - new Date(msg.created_at)) < 120000) &&
+              msg.sender !== 'api' && nextMsg.sender !== 'api';
+
+            const isClusterStart = !isSameSenderPrev;
+            const isClusterEnd = !isSameSenderNext;
+            const isClusterMiddle = isSameSenderPrev && isSameSenderNext;
+
+            const isSelected = selectedIds.includes(msg.id);
+            const isSelectionMode = selectedIds.length > 0;
+            const isMe = msg.sender === myRole;
+
             return (
               <div key={msg.id || i} id={`msg-${msg.id}`} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
                 {showDate && (
@@ -1347,19 +1553,46 @@ export default function ChatWindow({
                     <span>{formatDateSeparator(msg.created_at)}</span>
                   </div>
                 )}
-                <MessageBubble
-                  msg={msg}
-                  myRole={myRole}
-                  onDelete={onDelete}
-                  canDelete={canDelete}
-                  onReact={onReact}
-                  onView={onView}
-                  onBurn={onBurn}
-                  onPin={onPin}
-                  guestId={guestId}
-                  onReply={setReplyingTo}
-                  messages={messages}
-                />
+                <div 
+                  className={`chat-message-item ${isMe ? 'chat-message-item--right' : 'chat-message-item--left'} ${isSelected ? 'chat-message-item--selected' : ''}`}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleSelectMessage(msg.id);
+                    }
+                  }}
+                >
+                  {isSelectionMode && (
+                    <div 
+                      className={`chat-selection-checkbox ${isSelected ? 'chat-selection-checkbox--checked' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectMessage(msg.id);
+                      }}
+                      title={isSelected ? 'Deselect message' : 'Select message'}
+                    >
+                      {isSelected && <Check size={12} strokeWidth={3} />}
+                    </div>
+                  )}
+                  <MessageBubble
+                    msg={msg}
+                    myRole={myRole}
+                    onDelete={onDelete}
+                    canDelete={canDelete}
+                    onReact={onReact}
+                    onView={onView}
+                    onBurn={onBurn}
+                    onPin={onPin}
+                    guestId={guestId}
+                    onReply={setReplyingTo}
+                    messages={messages}
+                    isClusterStart={isClusterStart}
+                    isClusterEnd={isClusterEnd}
+                    isClusterMiddle={isClusterMiddle}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={isSelected}
+                    onToggleSelect={toggleSelectMessage}
+                  />
+                </div>
               </div>
             );
           })

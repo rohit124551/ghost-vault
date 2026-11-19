@@ -217,6 +217,12 @@ export default function GuestRoomPage() {
       setMessages(prev => prev.filter(m => m.id !== id));
     });
 
+    s.on('messages_batch_deleted', ({ ids }) => {
+      if (Array.isArray(ids)) {
+        setMessages(prev => prev.filter(m => !ids.includes(m.id)));
+      }
+    });
+
     s.on('message_reacted', ({ messageId, reactions }) => {
       setMessages(prev => prev.map(m => m.id === messageId ? { ...m, reactions } : m));
     });
