@@ -17,11 +17,12 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
 - **🗂️ In-Browser Folder Zipping**: Drag and drop an entire folder onto the dashboard. GhostVault will recursively zip the folder locally in your browser and upload it securely as a single `.zip` asset.
 - **📝 Markdown & Code Parsing**: Paste raw JSON, Python, JS, or use inline Markdown (`*bold*`, `_italics_`, `` `code` ``). GhostVault detects code and shares it using a built-in viewer with beautiful syntax highlighting.
 - **📥 Chat Export**: Instantly download your entire secure chat history as a cleanly formatted `.md` Markdown file before revoking a tunnel.
-- **🛰️ Secure Tunnels**: Orchestrate persistent, ephemeral connections with split-pane management. Perfect for real-time data drops.
+- **🛰️ Secure Tunnels & Scopes**: Orchestrate persistent or ephemeral connections with split-pane management across three distinct audiences: 🌐 Public Tunnels, 🔒 Encrypted Private Notes, and ⚡ Developer API Feeds.
+- **⚡ Universal API Ingestion Gateway**: Receive external contact forms, bug reports, and telemetry via `POST /api/ingest/:slug`. Features 20KB route payload ceilings, 10 req/min IP sliding rate limiting, per-project CORS origin whitelisting, Discord webhook relays with server timestamps, and in-chat category filtering (`/bugs`, `/feedback`, `/features`).
+- **📟 Interactive 4-Metric Command Deck**: Command header featuring live UTC telemetry, node status, and an interactive 4-card metric deck that instantly filters conversations and file vaults with a single click.
 - **⏸️ True Pause/Resume**: Temporarily suspend tunnel access with a single click. Pausing instantly kicks active guests, displays a custom 404 page, and physically freezes the tunnel's countdown timer in the database until resumed!
 - **⚡ Timer Auto-Reset**: Safety-first messaging! Burn timers automatically reset to zero after each ephemeral payload is delivered, preventing accidental leaks of future messages.
 - **📱 In-Chat Command Menu**: Kebab menu natively built into the chat header. Pause/resume tunnels, copy links, view QR codes, and edit node times without ever leaving the chat view!
-- **📟 Dynamic Command Center**: A centralized dashboard featuring a live UTC clock, node status monitoring, and real-time activity metrics.
 - **💬 Premium Chat Interactions**: WhatsApp/Telegram-style messaging with floating timestamps, indigo-violet gradients, and pro-grade typography.
   - **📌 Pinned Messages**: Pin important messages to a sticky, highly visible banner at the top of the chat thread.
   - **🔄 Swipe-to-Reply**: Intuitively swipe right on any message (especially on mobile) to instantly quote and reply to it.
@@ -29,11 +30,11 @@ GhostVault is a premium, secure, and ephemeral DevSecOps terminal designed for m
   - **PDF Previews**: First-page thumbnails for uploaded PDFs generated dynamically via Cloudinary.
   - **Voice Notes**: Quick-record microphone button for instant, Telegram-style audio voice notes.
   - **Emoji Reactions**: React to messages instantly. Admins have superpower capabilities to override and remove any reactions.
-  - **📊 Live Upload Progress**: Precision upload tracking. Attached files instantly turn into visual progress bars showing real-time network transmission percentages `0% -> 100%`.
 - **📱 Mobile-First Optimizations**: Uses modern CSS (`100dvh`) to prevent double scrollbars and ensures the UI feels native on iOS/Android, complete with a dedicated touch-friendly context menu button.
 - **🐛 Built-in Bug Reporting**: A dedicated floating action button for guests and owners to report UI/UX bugs, logging them directly to the admin dashboard's 'Bugs' tab.
 - **🌗 Dynamic Theme Toggling**: Effortlessly switch between Cyber Midnight (Dark) and Light mode with a single click, instantly adapting all glassmorphic UI elements.
-- **🗑️ 2-Step Secure Deletion**: Prevent accidental data loss with safety-first deletion workflows and pulsing visual confirmations.
+- **🗑️ 2-Step Secure Deletion**: Prevent accidental data loss with accessible, keyboard-trapped confirmation dialogs, explicit item summaries, irreversibility warnings, and permanent wipe safeguards for files, tunnels, and messages.
+- **🛡️ Cyber Security Hardening**: Active anti-leak & path-traversal blocker, CWE-209 safe error handling (no origin whitelist or database stack leakage), and React error boundaries protecting against white screens.
 - **📱 Responsive Sidebar**: Intelligent navigation with auto-collapse on chat, click-outside-to-close behavior, and persistent toggles for maximum workspace focus.
 - **👁️ View-Once Mode**: Specialized tunnels that automatically revoke themselves the moment the first file is received.
 - **🚨 Panic Mode**: Press `Esc` twice quickly to hide your vault instantly. Restore with a hidden trigger.
