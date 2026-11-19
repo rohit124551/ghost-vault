@@ -1240,51 +1240,12 @@ export default function ChatWindow({
     }
   };
 
-  /**
-   * Smart Paste — strips invisible/garbage characters common in WhatsApp, Telegram,
-   * email clients and other apps before inserting into the composer.
-   *
-   * What gets cleaned:
-   *  • Zero-width chars: ZWS (200B), ZWNJ (200C), ZWJ (200D), BOM (FEFF), SHY (00AD)
-   *  • Non-breaking spaces → regular space
-   *  • Windows-style CRLF → LF
-   *  • Excessive blank lines (3+) → max 2
-   *  • Leading / trailing whitespace per line preserved intentionally
-   *  • WhatsApp-style forwarded-message headers stripped ("Forwarded message", "‎", etc.)
-   */
-  const smartCleanText = (raw) => {
-    if (!raw) return raw;
-
-    let cleaned = raw;
-
-    // 1. Strip zero-width / invisible Unicode characters
-    // eslint-disable-next-line no-control-regex
-    cleaned = cleaned.replace(/[\u200B\u200C\u200D\uFEFF\u00AD\u200E\u200F\u202A-\u202E\u2060\u2061\u2062\u2063\u2064\uFFF9-\uFFFB]/g, '');
-
-    // 2. Normalize non-breaking spaces (U+00A0, U+202F, U+2007, U+2009, U+205F, U+3000) → regular space
-    cleaned = cleaned.replace(/[\u00A0\u202F\u2007\u2009\u205F\u3000]/g, ' ');
-
-    // 3. Normalize CRLF and CR → LF
-    cleaned = cleaned.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-    // 4. Strip WhatsApp forwarded-message noise line ("Forwarded message" header, starred message badge)
-    cleaned = cleaned.replace(/^(Forwarded|Forwarded message)\s*\n/im, '');
-
-    // 5. Collapse 3+ consecutive blank lines → 2 max (preserves intentional double line-breaks)
-    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-
-    // 6. Trim trailing whitespace from every individual line (keep leading indent intentionally)
-    cleaned = cleaned.split('\n').map(line => line.trimEnd()).join('\n');
-
-    return cleaned;
-  };
-
   const handlePaste = (e) => {
     if (disabled) return;
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    // 1. If media file is in clipboard → attach it (existing behaviour)
+    // 1. If media file is in clipboard → attach it (images / videos)
     const newFiles = [];
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('video') !== -1) {
@@ -1300,40 +1261,8 @@ export default function ChatWindow({
       return;
     }
 
-    // 2. Text paste — apply smart cleaning
-    const rawText = e.clipboardData.getData('text/plain');
-    if (!rawText) return; // let browser handle empty paste normally
-
-    const cleanedText = smartCleanText(rawText);
-
-    // Only intercept if we actually changed something (avoid breaking normal pastes)
-    if (cleanedText === rawText) return;
-
-    // Insert cleaned text at cursor position in textarea
-    e.preventDefault();
-
-    const textarea = e.target;
-    const start = textarea.selectionStart ?? text.length;
-    const end   = textarea.selectionEnd   ?? text.length;
-
-    const before = text.slice(0, start);
-    const after  = text.slice(end);
-    const newText = before + cleanedText + after;
-
-    setText(newText);
-
-    // Restore cursor position after the pasted content
-    const newCursor = start + cleanedText.length;
-    requestAnimationFrame(() => {
-      textarea.selectionStart = newCursor;
-      textarea.selectionEnd   = newCursor;
-    });
-
-    // Quiet toast only if we actually stripped invisible chars (not just normalized newlines)
-    const invisibleStripped = rawText.replace(cleanedText, '').length;
-    if (invisibleStripped > 0) {
-      toast('Cleaned invisible characters from paste', { icon: '✂️', duration: 2000 });
-    }
+    // 2. Pure raw text: preserve all newlines, spaces, bullets, and indentation exactly as pasted
+    // The browser's native textarea paste handles raw text seamlessly without deducting anything.
   };
 
   const handleDragOver = (e) => {
