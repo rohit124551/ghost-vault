@@ -6,6 +6,9 @@ const express = require('express');
 const router = express.Router({ mergeParams: true });
 const supabase = require('../lib/supabase');
 const requireOwner = require('../middleware/requireOwner');
+const roomAccess = require('../middleware/roomAccess');
+const { broadcastRoomEvent } = require('../lib/roomEvents');
+router.use(roomAccess);
 const { roomFileUpload, deleteFromCloudinary } = require('../lib/cloudinary');
 
 // Resolve room_id from token (shared helper)
@@ -41,7 +44,7 @@ router.get('/', async (req, res, next) => {
     if (authHeader?.startsWith('Bearer ')) {
       const jwt = authHeader.split(' ')[1];
       const { data: { user } } = await supabase.auth.getUser(jwt);
-      if (user && (!process.env.OWNER_EMAIL || user.email === process.env.OWNER_EMAIL)) {
+      if (user && (process.env.OWNER_EMAIL && user.email.toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())) {
         isOwner = true;
       }
     }
@@ -74,7 +77,8 @@ router.post('/text', async (req, res, next) => {
     const room = await getRoomByToken(req.params.token);
     if (!room) return res.status(404).json({ error: 'Room not found or inactive' });
 
-    const { content, sender = 'guest', burn_after_seconds = null, reply_to_id = null } = req.body;
+    const { content, burn_after_seconds = null, reply_to_id = null } = req.body;
+    const sender = req.owner ? 'owner' : 'guest';
     if (!content?.trim()) return res.status(400).json({ error: 'content is required' });
 
     // If sender is owner, verify JWT
@@ -108,7 +112,7 @@ router.post('/text', async (req, res, next) => {
 
     // Emit to room via Socket.IO
     const io = req.app.get('io');
-    io.to(`room:${req.params.token}`).emit('new_message', { ...message, roomToken: req.params.token });
+    await broadcastRoomEvent(io, req.params.token, 'new_message', { ...message, roomToken: req.params.token });
 
     res.status(201).json(message);
   } catch (err) {
@@ -125,7 +129,7 @@ router.post('/file', (req, res, next) => {
       if (!room) return res.status(404).json({ error: 'Room not found or inactive' });
       if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-      const sender = req.body.sender || 'guest';
+      const sender = req.owner ? 'owner' : 'guest';
       
       if (sender !== 'owner' && room.is_paused) {
         return res.status(403).json({ error: 'Room is currently paused by admin' });
@@ -153,7 +157,7 @@ router.post('/file', (req, res, next) => {
       if (error) throw error;
 
       const io = req.app.get('io');
-      io.to(`room:${req.params.token}`).emit('new_message', { ...message, roomToken: req.params.token });
+      await broadcastRoomEvent(io, req.params.token, 'new_message', { ...message, roomToken: req.params.token });
 
       res.status(201).json(message);
     } catch (err2) {
@@ -171,7 +175,7 @@ router.post('/:id/view', async (req, res, next) => {
     const { data: msg, error: fetchErr } = await supabase
       .from('messages')
       .select('viewed_at, burn_after_seconds')
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .single();
       
     if (fetchErr || !msg) return res.status(404).json({ error: 'Message not found' });
@@ -185,7 +189,7 @@ router.post('/:id/view', async (req, res, next) => {
     const { data: updatedMsg, error: updateErr } = await supabase
       .from('messages')
       .update({ viewed_at: now })
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .select()
       .single();
 
@@ -193,7 +197,7 @@ router.post('/:id/view', async (req, res, next) => {
 
     // Emit event so other clients start the timer too
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('message_viewed', { 
+    await broadcastRoomEvent(io, token, 'message_viewed', { 
       id: id, 
       viewed_at: now, 
       roomToken: token 
@@ -214,7 +218,7 @@ router.post('/:id/burn', async (req, res, next) => {
     const { data: msg, error: fetchErr } = await supabase
       .from('messages')
       .select('file_url, file_name, type, burn_after_seconds, viewed_at')
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .single();
       
     if (fetchErr || !msg) return res.status(404).json({ error: 'Message not found' });
@@ -246,12 +250,12 @@ router.post('/:id/burn', async (req, res, next) => {
     const { error } = await supabase
       .from('messages')
       .update({ type: 'burned', content: null, file_url: null, file_name: null, file_size: null })
-      .eq('id', id);
+      .eq('id', id).eq('room_id', req.room.id);
     if (error) throw error;
 
     // Emit socket event to notify guests and owner in real-time
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('message_burned', { id, roomToken: token });
+    await broadcastRoomEvent(io, token, 'message_burned', { id, roomToken: token });
 
     res.json({ success: true, burnt: true });
   } catch (err) {
@@ -268,7 +272,7 @@ router.delete('/:id', requireOwner, async (req, res, next) => {
     const { data: msg, error: fetchErr } = await supabase
       .from('messages')
       .select('file_url, file_name, type')
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .single();
       
     if (!fetchErr && msg && msg.file_url) {
@@ -291,12 +295,12 @@ router.delete('/:id', requireOwner, async (req, res, next) => {
     const { error } = await supabase
       .from('messages')
       .delete()
-      .eq('id', id);
+      .eq('id', id).eq('room_id', req.room.id);
     if (error) throw error;
 
     // Emit socket event to notify guests and owner in real-time
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('message_deleted', { id, roomToken: token });
+    await broadcastRoomEvent(io, token, 'message_deleted', { id, roomToken: token });
 
     res.json({ success: true });
   } catch (err) {
@@ -321,7 +325,7 @@ router.post('/:id/react', async (req, res, next) => {
     const { data: msg, error: fetchErr } = await supabase
       .from('messages')
       .select('reactions')
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .single();
       
     if (fetchErr || !msg) return res.status(404).json({ error: 'Message not found' });
@@ -335,7 +339,7 @@ router.post('/:id/react', async (req, res, next) => {
       if (authHeader?.startsWith('Bearer ')) {
         const jwt = authHeader.split(' ')[1];
         const { data: { user } } = await supabase.auth.getUser(jwt);
-        if (user && (!process.env.OWNER_EMAIL || user.email === process.env.OWNER_EMAIL)) {
+        if (user && (process.env.OWNER_EMAIL && user.email.toLowerCase() === process.env.OWNER_EMAIL.toLowerCase())) {
           isOwnerAuth = true;
         }
       }
@@ -363,14 +367,14 @@ router.post('/:id/react', async (req, res, next) => {
     const { data: updatedMsg, error: updateErr } = await supabase
       .from('messages')
       .update({ reactions })
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .select()
       .single();
       
     if (updateErr) throw updateErr;
 
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('message_reacted', { 
+    await broadcastRoomEvent(io, token, 'message_reacted', { 
       messageId: id, 
       reactions: updatedMsg.reactions, 
       roomToken: token 
@@ -395,7 +399,7 @@ router.post('/:id/pin', async (req, res, next) => {
     const { data: msg, error: msgErr } = await supabase
       .from('messages')
       .select('is_pinned')
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .eq('room_id', room.id)
       .single();
 
@@ -406,7 +410,7 @@ router.post('/:id/pin', async (req, res, next) => {
     const { data: updatedMsg, error: updateErr } = await supabase
       .from('messages')
       .update({ is_pinned: newPinStatus })
-      .eq('id', id)
+      .eq('id', id).eq('room_id', req.room.id)
       .select()
       .single();
 
@@ -414,7 +418,7 @@ router.post('/:id/pin', async (req, res, next) => {
 
     // Broadcast
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('message_pinned', { 
+    await broadcastRoomEvent(io, token, 'message_pinned', { 
       messageId: id, 
       is_pinned: newPinStatus,
       roomToken: token 

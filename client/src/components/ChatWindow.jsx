@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff, Clock } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +7,9 @@ import toast from 'react-hot-toast';
 import FullScreenImageViewer from './FullScreenImageViewer';
 import { copyToClipboard } from '../utils/clipboard';
 import { formatBytes } from '../utils/formatBytes';
+import { createChatScrollController } from '../utils/chatScroll';
 import './ChatWindow.css';
+import { useConfirmAction } from '../hooks/useConfirmAction';
 
 /* ── Helpers ── */
 const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4'];
@@ -21,7 +23,7 @@ function getAvatarColor(seed) {
 function parseInlineMarkdown(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.split(urlRegex).map((part1, i1) => {
-    if (urlRegex.test(part1)) {
+    if (/^https?:\/\/[^\s]+$/.test(part1)) {
       return <a key={`url-${i1}`} href={part1} target="_blank" rel="noreferrer" className="chat-link">{part1}</a>;
     }
 
@@ -143,11 +145,217 @@ function getFileTypeFromName(fileName) {
   return 'generic';
 }
 
+/* ── Ingest Event Parsing & Card Component ── */
+const CATEGORY_STYLES = {
+  bug:       { label: 'Bug Report',     icon: '🐛', border: '#ef4444', bg: 'rgba(239, 68, 68, 0.14)',  color: '#f87171' },
+  feedback:  { label: 'User Feedback',  icon: '💡', border: '#06b6d4', bg: 'rgba(6, 182, 212, 0.14)',  color: '#38bdf8' },
+  feature:   { label: 'Feature Update', icon: '🚀', border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.14)', color: '#c084fc' },
+  telemetry: { label: 'Log / Metric',   icon: '📊', border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.14)', color: '#fbbf24' },
+  general:   { label: 'Event',          icon: '📡', border: '#10b981', bg: 'rgba(16, 185, 129, 0.14)', color: '#34d399' },
+};
+
+function tryParseApiEvent(content) {
+  if (!content || typeof content !== 'string') return null;
+  const trimmed = content.trim();
+
+  // 1. Native JSON format
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        const cat = parsed.category || (parsed.status === 'error' ? 'bug' : 'general');
+        if (parsed._type === 'api_event' && parsed.data) {
+          return { ...parsed, category: cat };
+        }
+        return {
+          _type: 'api_event',
+          slug: parsed.slug || 'API',
+          category: cat,
+          title: parsed.title || parsed.endpoint || 'Inbound Event',
+          status: parsed.status || (cat === 'bug' ? 'error' : 'normal'),
+          data: parsed.data || parsed,
+        };
+      }
+    } catch { /* proceed to markdown check */ }
+  }
+
+  // 2. Backward compatibility: Parse Markdown format (e.g. 📡 **[PORTFOLIO] Inbound Event** ...)
+  if (trimmed.startsWith('📡') || trimmed.includes('Inbound Event')) {
+    const slugMatch = trimmed.match(/\[(.*?)\]/);
+    const slug = slugMatch ? slugMatch[1] : 'API';
+    const data = {};
+    const lines = trimmed.split('\n');
+    let title = `Inbound Event: ${slug}`;
+    let category = 'general';
+
+    for (const line of lines) {
+      const cleanLine = line.trim();
+      if (!cleanLine || cleanLine.startsWith('📡')) continue;
+
+      if (cleanLine.startsWith('>')) {
+        title = cleanLine.replace(/^>\s*/, '');
+        continue;
+      }
+
+      const fieldMatch = cleanLine.match(/^\*\*(.*?):\*\*\s*(.*)$/);
+      if (fieldMatch) {
+        const key = fieldMatch[1];
+        let val = fieldMatch[2];
+        if (val.startsWith('`') && val.endsWith('`')) val = val.slice(1, -1);
+        data[key] = val;
+        if (key.toLowerCase() === 'category') category = val.toLowerCase();
+      }
+    }
+
+    if (Object.keys(data).length > 0) {
+      return {
+        _type: 'api_event',
+        slug,
+        category,
+        title,
+        status: category === 'bug' ? 'error' : 'normal',
+        data,
+      };
+    }
+  }
+
+  return null;
+}
+
+function ApiEventCard({ event, createdAt }) {
+  const [copiedRaw, setCopiedRaw] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+
+  const { slug, title, status, category = 'general', data } = event;
+  const isError = status === 'error' || category === 'bug';
+  const isWarn = status === 'warning';
+
+  const catKey = (category || 'general').toLowerCase();
+  const catInfo = CATEGORY_STYLES[catKey] || {
+    label: catKey.toUpperCase(),
+    icon: '🏷️',
+    border: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.14)',
+    color: '#34d399',
+  };
+
+  const borderColor = isError ? '#ef4444' : catInfo.border;
+  const statusBadgeBg = isError ? 'rgba(239, 68, 68, 0.15)' : isWarn ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+  const statusBadgeColor = isError ? '#f87171' : isWarn ? '#fbbf24' : '#34d399';
+
+  const entries = Object.entries(data || {}).filter(([k]) => !['timestamp', 'time', 'date', 'created_at', 'category', 'type', '_type'].includes(k.toLowerCase()));
+
+  const formatLabel = (k) => {
+    const ACRONYMS = { ip: 'IP', url: 'URL', uri: 'URI', id: 'ID', api: 'API', cpu: 'CPU', ram: 'RAM', os: 'OS', ttl: 'TTL', fk: 'FK', ui: 'UI', db: 'DB' };
+    return String(k)
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .map(w => ACRONYMS[w.toLowerCase()] || (w.charAt(0).toUpperCase() + w.slice(1)))
+      .join(' ');
+  };
+
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopiedRaw(true);
+    setTimeout(() => setCopiedRaw(false), 2000);
+  };
+
+  const dateObj = createdAt ? new Date(createdAt) : new Date();
+  const timeFormatted = dateObj.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+  const dateFormatted = dateObj.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  return (
+    <div className="api-event-card" style={{ borderLeftColor: borderColor }}>
+      {/* Title Bar */}
+      <div className="api-event-header">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {/* Category Badge */}
+          <span 
+            className="api-event-category-badge"
+            style={{ background: catInfo.bg, color: catInfo.color, borderColor: `${catInfo.border}44` }}
+          >
+            <span>{catInfo.icon}</span>
+            <span>{catInfo.label}</span>
+          </span>
+          <span className="api-event-title">{title || `Inbound Event: ${slug}`}</span>
+          {status && status !== 'normal' && (
+            <span className="api-event-badge" style={{ background: statusBadgeBg, color: statusBadgeColor }}>
+              {status.toUpperCase()}
+            </span>
+          )}
+        </div>
+        <button 
+          onClick={handleCopy} 
+          className="api-event-copy-btn"
+          title="Copy raw JSON payload"
+        >
+          {copiedRaw ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+          <span>{copiedRaw ? 'Copied' : 'JSON'}</span>
+        </button>
+      </div>
+
+      {/* Grid of Fields (Multi-column like reference Discord image) */}
+      <div className="api-event-grid">
+        {entries.map(([k, v]) => {
+          const valStr = typeof v === 'object' && v !== null ? JSON.stringify(v, null, 2) : String(v);
+          const isFullWidth = valStr.length > 40 || valStr.includes('\n') || ['query', 'search_query', 'message', 'description', 'product_name', 'page_uri', 'error', 'stack', 'details'].includes(k.toLowerCase());
+
+          return (
+            <div key={k} className={`api-event-field ${isFullWidth ? 'api-event-field--full' : ''}`}>
+              <span className="api-event-label">{formatLabel(k)}</span>
+              {typeof v === 'object' && v !== null ? (
+                <pre className="api-event-json">{valStr}</pre>
+              ) : (
+                <span className="api-event-value">{valStr}</span>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Automatic Server-side Timestamp Field with hh:mm:ss */}
+        <div className="api-event-field">
+          <span className="api-event-label">Timestamp</span>
+          <span className="api-event-value font-mono text-accent">{timeFormatted}</span>
+        </div>
+      </div>
+
+      {/* Footer with database timestamp */}
+      <div className="api-event-footer">
+        <span className="flex items-center gap-1.5 text-textGhost">
+          <Clock size={11} className="text-accent shrink-0" />
+          <span>{dateFormatted} · {timeFormatted}</span>
+        </span>
+        <button onClick={(e) => { e.stopPropagation(); setShowRaw(!showRaw); }} className="api-event-raw-toggle">
+          {showRaw ? 'Hide Raw' : 'Inspect Raw'}
+        </button>
+      </div>
+
+      {showRaw && (
+        <pre className="api-event-raw-block">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 /* ── Message Bubble ── */
 function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages }) {
   const [mediaExpanded, setMediaExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmAction, confirmationDialog] = useConfirmAction();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -159,6 +367,8 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
   
   const menuRef = useRef(null);
   const isMe = msg.sender === myRole;
+  const isApiMessage = msg.sender === 'api';
+  const apiEvent = isApiMessage ? tryParseApiEvent(msg.content) : null;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -231,13 +441,15 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      setTimeout(() => setConfirmDelete(false), 2000);
-    } else {
-      onDelete(msg.id);
-      setConfirmDelete(false);
-    }
+    setMenuOpen(false);
+    setShowEmojiPicker(false);
+    confirmAction({
+      title: 'Delete message?',
+      item: msg.file_name || msg.content || 'Selected message',
+      description: 'This removes the message from this conversation for everyone. This cannot be undone.',
+      label: 'Delete message',
+      action: () => onDelete(msg.id),
+    });
   };
 
 
@@ -295,12 +507,13 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
 
       {/* Avatar — shown for other person only */}
       {!isMe && (
-        <div className="bubble-avatar" style={{ background: getAvatarColor(msg.sender) }}>
-          {msg.sender === 'owner' ? 'O' : 'G'}
+        <div className={`bubble-avatar ${isApiMessage ? 'bubble-avatar--api' : ''}`} style={{ background: isApiMessage ? '#10b981' : getAvatarColor(msg.sender) }}>
+          {isApiMessage ? '📡' : msg.sender === 'owner' ? 'O' : 'G'}
         </div>
       )}
       <div 
-        className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
+        className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${isApiMessage ? 'bubble--api' : ''}
+${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
         onContextMenu={(e) => {
           e.preventDefault();
           const spaceBelow = window.innerHeight - e.clientY;
@@ -308,6 +521,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
           setMenuOpen(true);
         }}
       >
+        {confirmationDialog}
         {msg.is_pinned && !isBurned && !isBlurred && (
           <div className="absolute -top-2 -left-2 bg-bgCard border border-cyan-500/30 rounded-full p-1 shadow-md z-10" title="Pinned">
             <Pin size={10} className="text-cyan-400" />
@@ -394,19 +608,9 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
                 {!isBurned && <div className="h-[1px] bg-border my-1 mx-2" />}
                 <button 
                   className="flex items-center gap-3 px-3 py-2 hover:bg-danger/10 rounded-lg text-sm text-danger text-left transition-colors" 
-                  onClick={(e) => { 
-                    e.stopPropagation();
-                    if (!confirmDelete) {
-                      setConfirmDelete(true);
-                      setTimeout(() => setConfirmDelete(false), 2000);
-                    } else {
-                      setMenuOpen(false);
-                      setShowEmojiPicker(false);
-                      handleDelete(e);
-                    }
-                  }}
+                  onClick={handleDelete}
                 >
-                  <X size={15} /> {confirmDelete ? 'Confirm?' : 'Delete'}
+                  <X size={15} /> Delete
                 </button>
               </>
             )}
@@ -427,7 +631,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
                 }}
               >
                 <div className="font-bold text-[10px] uppercase text-cyan-400 mb-0.5">
-                  {quotedMsg.sender === myRole ? 'You' : quotedMsg.sender === 'owner' ? 'Owner' : 'Guest'}
+                  {quotedMsg.sender === 'api' ? '📡 API' : quotedMsg.sender === myRole ? 'You' : quotedMsg.sender === 'owner' ? 'Owner' : 'Guest'}
                 </div>
                 <div className="truncate max-w-[200px] text-textSecondary">
                   {quotedMsg.type === 'text' ? quotedMsg.content : `[${quotedMsg.type}]`}
@@ -438,17 +642,19 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
         )}
         
         {/* Sender name only — no actions here anymore */}
-        <div className="bubble-meta">
-          <span className="bubble-sender">
-            {isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
-          </span>
-          {msg.burn_after_seconds && !isBurned && (
-            <span className="bubble-timer-badge">
-              <Timer size={10} />
-              {msg.viewed_at ? (timeLeft !== null ? `${timeLeft}s` : '0s') : (isMe ? `Sent (${msg.burn_after_seconds}s)` : `${msg.burn_after_seconds}s`)}
+        {!apiEvent && (
+          <div className="bubble-meta">
+            <span className="bubble-sender">
+              {isApiMessage ? '📡 API' : isMe ? 'You' : msg.sender === 'owner' ? 'Owner' : 'Guest'}
             </span>
-          )}
-        </div>
+            {msg.burn_after_seconds && !isBurned && (
+              <span className="bubble-timer-badge">
+                <Timer size={10} />
+                {msg.viewed_at ? (timeLeft !== null ? `${timeLeft}s` : '0s') : (isMe ? `Sent (${msg.burn_after_seconds}s)` : `${msg.burn_after_seconds}s`)}
+              </span>
+            )}
+          </div>
+        )}
 
         {isBurned ? (
           <div className="bubble-burned-content">
@@ -465,7 +671,11 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
           <>
             {/* ── Text ── */}
             {msg.type === 'text' && (
-              <div className="bubble-text">{renderMessageText(msg.content)}</div>
+              apiEvent ? (
+                <ApiEventCard event={apiEvent} createdAt={msg.created_at} />
+              ) : (
+                <div className="bubble-text">{renderMessageText(msg.content)}</div>
+              )
             )}
 
             {/* ── Image ── */}
@@ -580,7 +790,7 @@ function MessageBubble({ msg, myRole, onDelete, canDelete, onReact, onView, onBu
           </>
         )}
 
-        <span className="bubble-time-float">{formatTime(msg.created_at)}</span>
+        {!apiEvent && <span className="bubble-time-float">{formatTime(msg.created_at)}</span>}
 
         {/* ── Reactions ── */}
         {msg.reactions && Object.keys(msg.reactions).length > 0 && (
@@ -653,6 +863,42 @@ export default function ChatWindow({
   const [recordingTime, setRecordingTime] = useState(0);
   const [voiceNotePreview, setVoiceNotePreview] = useState(null);
 
+  // Ingestion Category Filtering
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Compute if thread has API messages & count events per category
+  const { hasApiMessages, categoryStats, customCategoryStats } = useMemo(() => {
+    let hasApi = false;
+    const stats = { bug: 0, feedback: 0, feature: 0, telemetry: 0, general: 0 };
+    const customStats = {};
+
+    for (const m of (messages || [])) {
+      if (m.sender === 'api') hasApi = true;
+      const ev = tryParseApiEvent(m.content);
+      if (ev) {
+        hasApi = true;
+        const cat = (ev.category || (ev.status === 'error' ? 'bug' : 'general')).toLowerCase();
+        if (stats[cat] !== undefined) {
+          stats[cat]++;
+        } else {
+          customStats[cat] = (customStats[cat] || 0) + 1;
+        }
+      }
+    }
+    return { hasApiMessages: hasApi, categoryStats: stats, customCategoryStats: customStats };
+  }, [messages]);
+
+  // Filter messages based on selected category
+  const displayedMessages = useMemo(() => {
+    if (!hasApiMessages || selectedCategory === 'all') return messages || [];
+    return (messages || []).filter(m => {
+      const ev = tryParseApiEvent(m.content);
+      if (!ev) return false;
+      const cat = (ev.category || (ev.status === 'error' ? 'bug' : 'general')).toLowerCase();
+      return cat === selectedCategory;
+    });
+  }, [messages, hasApiMessages, selectedCategory]);
+
   const [guestId] = useState(() => {
     let id = localStorage.getItem('ghostvault_guest_id');
     if (!id) {
@@ -665,7 +911,8 @@ export default function ChatWindow({
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
 
-  const scrollRef = useRef(null);
+  const contentRef = useRef(null);
+  const scrollControllerRef = useRef(null);
   const threadRef = useRef(null);
   const fileInputRef = useRef(null);
   const previewRef = useRef(null);
@@ -678,20 +925,41 @@ export default function ChatWindow({
     }
   }, [filePreviews]);
 
-  const handleScroll = (e) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.target;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-    setShowScrollBtn(!isAtBottom);
-  };
+  useLayoutEffect(() => {
+    const controller = createChatScrollController(threadRef.current, contentRef.current, setShowScrollBtn);
+    scrollControllerRef.current = controller;
+    return () => {
+      controller.destroy();
+      scrollControllerRef.current = null;
+    };
+  }, []);
 
-  const scrollToBottom = () => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  useLayoutEffect(() => {
+    if (!loading) scrollControllerRef.current?.sync();
+  }, [loading, messages?.length]);
 
-
+  // Support mobile virtual viewport (prevents iOS keyboard from covering input dock)
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!window.visualViewport) return;
+
+    const handleResize = () => {
+      const chatBar = document.querySelector('.chat-bar');
+      if (!chatBar) return;
+      const offset = window.innerHeight - window.visualViewport.height;
+      if (offset > 120) {
+        chatBar.style.transform = `translateY(-${offset}px)`;
+      } else {
+        chatBar.style.transform = 'none';
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    window.visualViewport.addEventListener('scroll', handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('scroll', handleResize);
+    };
+  }, []);
 
   // Voice Note Handlers
   const startRecording = async () => {
@@ -920,7 +1188,9 @@ export default function ChatWindow({
             whileTap={{ scale: 0.9 }}
             className="chat-scroll-bottom"
             style={{ bottom: 85 + previewHeight }}
-            onClick={scrollToBottom}
+            type="button"
+            aria-label="Scroll to latest message"
+            onClick={() => scrollControllerRef.current?.jumpToLatest()}
           >
             <ChevronDown size={18} strokeWidth={3} />
           </motion.button>
@@ -960,23 +1230,105 @@ export default function ChatWindow({
         );
       })()}
 
+      {/* ── API Category Filter Bar ── */}
+      {hasApiMessages && (
+        <div className="chat-api-filter-bar">
+          <button
+            type="button"
+            className={`api-filter-pill ${selectedCategory === 'all' ? 'active' : ''}`}
+            onClick={() => setSelectedCategory('all')}
+          >
+            <span>All</span>
+            <span className="api-filter-count">{messages?.length || 0}</span>
+          </button>
+
+          {categoryStats.bug > 0 && (
+            <button
+              type="button"
+              className={`api-filter-pill api-filter-pill--bug ${selectedCategory === 'bug' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('bug')}
+            >
+              <span>🐛 Bugs</span>
+              <span className="api-filter-count">{categoryStats.bug}</span>
+            </button>
+          )}
+
+          {categoryStats.feedback > 0 && (
+            <button
+              type="button"
+              className={`api-filter-pill api-filter-pill--feedback ${selectedCategory === 'feedback' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('feedback')}
+            >
+              <span>💡 Feedback</span>
+              <span className="api-filter-count">{categoryStats.feedback}</span>
+            </button>
+          )}
+
+          {categoryStats.feature > 0 && (
+            <button
+              type="button"
+              className={`api-filter-pill api-filter-pill--feature ${selectedCategory === 'feature' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('feature')}
+            >
+              <span>🚀 Features</span>
+              <span className="api-filter-count">{categoryStats.feature}</span>
+            </button>
+          )}
+
+          {categoryStats.telemetry > 0 && (
+            <button
+              type="button"
+              className={`api-filter-pill api-filter-pill--telemetry ${selectedCategory === 'telemetry' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('telemetry')}
+            >
+              <span>📊 Telemetry</span>
+              <span className="api-filter-count">{categoryStats.telemetry}</span>
+            </button>
+          )}
+
+          {/* Dynamic custom categories */}
+          {Object.entries(customCategoryStats).map(([cat, count]) => (
+            <button
+              key={cat}
+              type="button"
+              className={`api-filter-pill ${selectedCategory === cat ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(cat)}
+            >
+              <span>🏷️ {cat.toUpperCase()}</span>
+              <span className="api-filter-count">{count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ── Message thread ── */}
-      <div className="chat-thread" ref={threadRef} onScroll={handleScroll}>
+      <div className="chat-thread" ref={threadRef} tabIndex={0} role="region" aria-label="Messages">
+        <div className="chat-thread-content" ref={contentRef}>
 
         {loading ? (
           <div className="chat-empty"><div className="spinner" /></div>
-        ) : messages.length === 0 ? (
+        ) : displayedMessages.length === 0 ? (
           <div className="chat-empty">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ color: 'var(--text-ghost)', marginBottom: 8 }}>
               <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10A8 8 0 0 0 12 2z" />
               <circle cx="9" cy="10" r="1" fill="currentColor" />
               <circle cx="15" cy="10" r="1" fill="currentColor" />
             </svg>
-            <p style={{ fontSize: 12, color: 'var(--text-ghost)' }}>No messages yet</p>
+            <p style={{ fontSize: 12, color: 'var(--text-ghost)' }}>
+              {selectedCategory !== 'all' ? `No ${selectedCategory} events found` : 'No messages yet'}
+            </p>
+            {selectedCategory !== 'all' && (
+              <button 
+                className="mt-2 text-xs text-accent hover:underline font-ui font-medium"
+                onClick={() => setSelectedCategory('all')}
+              >
+                Clear filter (View All)
+              </button>
+            )}
           </div>
         ) : (
-          messages.map((msg, i) => {
-            const prevMsg = i > 0 ? messages[i - 1] : null;
+          displayedMessages.map((msg, i) => {
+            const prevMsg = i > 0 ? displayedMessages[i - 1] : null;
             let showDate = false;
             if (!prevMsg) {
               showDate = true;
@@ -1012,7 +1364,7 @@ export default function ChatWindow({
             );
           })
         )}
-        <div ref={scrollRef} />
+        </div>
       </div>
 
       {filePreviews.length > 0 && !disabled && (

@@ -8,12 +8,14 @@ import toast from 'react-hot-toast';
 import ChatWindow from '../components/ChatWindow';
 import GhostLogo from '../components/GhostLogo';
 import './GuestRoomPage.css';
+import useDialogAccessibility from '../hooks/useDialogAccessibility';
 
 const API_URL    = import.meta.env.VITE_API_URL    || 'http://localhost:4000';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
 
 /* ── Bug Report Modal (guest version) ── */
 function BugReportModal({ token, onClose }) {
+  const dialogRef = useDialogAccessibility(onClose);
   const [description, setDescription] = useState('');
   const [email, setEmail]             = useState('');
   const [status, setStatus]           = useState('idle'); // idle | sending | success | error
@@ -43,7 +45,8 @@ function BugReportModal({ token, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[10000] p-4 animate-fadeIn" onClick={onClose}>
       <div 
-        className="w-full max-w-[420px] bg-bgCard border border-purple-500/30 rounded-2xl shadow-2xl overflow-hidden" 
+        ref={dialogRef} role="dialog" aria-modal="true" aria-label="Report a bug" tabIndex={-1}
+        className="w-full max-w-[420px] bg-bgCard border border-borderBase rounded-2xl shadow-2xl overflow-hidden" 
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-borderBase">
@@ -63,7 +66,7 @@ function BugReportModal({ token, onClose }) {
             <p className="text-sm text-textSecondary max-w-[300px] m-0 leading-relaxed">Thank you for helping us improve. Our team will look into it.</p>
             <p className="text-sm text-textSecondary mt-2">
               Need direct help? Email us at{' '}
-              <a href="mailto:support@rohitkumarranjan.in" className="text-cyan-500 font-semibold hover:underline">support@rohitkumarranjan.in</a>
+              <a href="mailto:support@rohitkumarranjan.in" className="text-accent font-semibold hover:underline">support@rohitkumarranjan.in</a>
             </p>
             <button className="mt-4 px-6 py-2 bg-accent hover:bg-accentHover text-white font-bold rounded-md transition-colors" onClick={onClose}>
               Close
@@ -77,7 +80,7 @@ function BugReportModal({ token, onClose }) {
                   Describe the Bug <span className="text-danger">*</span>
                 </label>
                 <textarea
-                  className="w-full min-h-[90px] p-3 bg-bgBase border border-borderBase rounded-xl text-textPrimary text-sm font-ui transition-colors focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 resize-y placeholder-textGhost"
+                  className="w-full min-h-[90px] p-3 bg-bgBase border border-borderBase rounded-xl text-textPrimary text-sm font-ui transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 resize-y placeholder-textGhost"
                   placeholder="What happened? What were you doing when the bug occurred?"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -91,7 +94,7 @@ function BugReportModal({ token, onClose }) {
                   Your Email <span className="normal-case tracking-normal font-normal text-textGhost ml-1">(Optional)</span>
                 </label>
                 <input
-                  className="w-full p-3 bg-bgBase border border-borderBase rounded-xl text-textPrimary text-sm font-ui transition-colors focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 placeholder-textGhost"
+                  className="w-full p-3 bg-bgBase border border-borderBase rounded-xl text-textPrimary text-sm font-ui transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 placeholder-textGhost"
                   type="email"
                   placeholder="you@example.com"
                   value={email}
@@ -113,7 +116,7 @@ function BugReportModal({ token, onClose }) {
                 Cancel
               </button>
               <button
-                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-br from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white rounded-md text-sm font-medium transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-accent hover:bg-accentHover text-white rounded-md text-sm font-medium transition-all disabled:opacity-50"
                 onClick={handleSubmit}
                 disabled={status === 'sending' || !description.trim()}
               >
@@ -148,12 +151,8 @@ export default function GuestRoomPage() {
   useEffect(() => {
     axios.get(`${API_URL}/api/rooms/${token}/valid`)
       .then(async res => {
-        if (!res.data.valid) {
+        if (!res.data.valid || res.data.isPaused) {
           return navigate('/404', { replace: true, state: { reason: 'revoked', token } });
-        }
-        
-        if (res.data.isPaused) {
-          return navigate('/404', { replace: true, state: { reason: 'paused', token } });
         }
         
         setStatus('valid');
@@ -225,8 +224,7 @@ export default function GuestRoomPage() {
     s.on('room_updated', ({ expiresAt: newExpiry, note: newNote, isActive, isPaused }) => {
       if (newExpiry !== undefined) setExpiresAt(newExpiry);
       if (newNote !== undefined) setNote(newNote);
-      if (isActive === false) navigate('/404', { replace: true, state: { reason: 'revoked', token } });
-      if (isPaused === true) navigate('/404', { replace: true, state: { reason: 'paused', token } });
+      if (isActive === false || isPaused === true) navigate('/404', { replace: true, state: { reason: 'revoked', token } });
     });
 
     s.on('room_revoked', () => {
@@ -353,18 +351,18 @@ export default function GuestRoomPage() {
     <div className="guest-root">
       <div className="guest-vault-container">
         {/* ── Branded Header ── */}
-        <div className="flex items-center justify-between px-4 py-3 bg-bgCard border-b border-borderBase shrink-0">
+        <div className="guest-chat-header flex items-center justify-between px-4 py-3 bg-bgCard border-b border-borderBase shrink-0">
           {/* Brand */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <GhostLogo className="w-5 h-5 text-cyan-400 shrink-0" />
+            <GhostLogo className="w-5 h-5 text-accent shrink-0" />
             <div className="min-w-0">
               <div className="font-display font-bold text-sm text-textPrimary leading-tight tracking-wide">GhostVault</div>
-              <div className="font-mono text-[9px] text-cyan-400 uppercase tracking-widest leading-none hidden sm:block">Secure Tunnel</div>
+              <div className="font-mono text-[9px] text-accent uppercase tracking-widest leading-none hidden sm:block">Secure Tunnel</div>
             </div>
           </div>
 
           {/* Meta */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="guest-chat-actions flex items-center gap-2 shrink-0">
             {timeLeft && (
               <div className={`flex items-center gap-1 px-2 py-1 rounded-sm border text-[10px] font-mono font-bold ${
                 timeLeft === 'Infinite'
@@ -376,7 +374,7 @@ export default function GuestRoomPage() {
             )}
             <div className="flex items-center gap-1 px-2 py-1 bg-bgBase border border-borderBase rounded-sm">
               <span className="text-[9px] font-mono text-textSecondary uppercase tracking-widest hidden sm:inline">Room</span>
-              <span className="text-[10px] font-mono text-cyan-400 font-bold tracking-widest">{token}</span>
+              <span className="guest-room-token text-[10px] font-mono text-accent font-bold tracking-widest" title={token}>{token}</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
@@ -384,7 +382,7 @@ export default function GuestRoomPage() {
             </div>
             {/* Bug report — lives in header, always accessible */}
             <button
-              className="w-7 h-7 flex items-center justify-center rounded-sm border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-all"
+              className="w-7 h-7 flex items-center justify-center rounded-sm border-borderBase bg-bgBase text-textGhost hover:text-accent hover:border-accent/30 hover:bg-accent/10 transition-all"
               onClick={() => setShowBugModal(true)}
               title="Report a bug"
               aria-label="Report a Bug"
@@ -403,7 +401,7 @@ export default function GuestRoomPage() {
 
         {/* Room note */}
         {note && (
-          <div className="px-4 py-2.5 border-b border-borderBase bg-bgBase/60 flex items-center justify-center gap-2">
+          <div className="guest-purpose px-4 py-2.5 border-b border-borderBase bg-bgBase/60 flex items-center justify-center gap-2">
             <span className="text-[10px] font-mono font-bold text-textGhost uppercase tracking-widest">Purpose:</span>
             <span className="text-xs text-textSecondary font-ui">{note}</span>
           </div>
@@ -412,6 +410,7 @@ export default function GuestRoomPage() {
         {/* ── Chat Container ── */}
         <div className="guest-chat-wrapper">
           <ChatWindow
+            key={token}
             messages={messages}
             onSendText={handleSendText}
             onSendFile={handleSendFile}

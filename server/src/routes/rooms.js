@@ -9,6 +9,8 @@ const router = express.Router();
 const supabase = require('../lib/supabase');
 const requireOwner = require('../middleware/requireOwner');
 const { generateToken } = require('../lib/token');
+const { guestsCanAccess } = require('../lib/roomAccess');
+const { broadcastRoomEvent, closeGuestAccess } = require('../lib/roomEvents');
 
 // GET /api/rooms/:token/valid — public endpoint, guests validate their token
 // IMPORTANT: must be before the generic :token delete route
@@ -17,13 +19,15 @@ router.get('/:token/valid', async (req, res, next) => {
     const { token } = req.params;
     const { data: room, error } = await supabase
       .from('rooms')
-      .select('id, token, expires_at, is_active, is_paused, view_once, note, paused_remaining_seconds')
+      .select('*')
       .eq('token', token)
       .single();
 
     if (error || !room) {
       return res.json({ valid: false, reason: 'not_found' });
     }
+
+    if (!guestsCanAccess(room)) return res.json({ valid: false, reason: 'unavailable' });
 
     if (!room.is_active) {
       return res.json({ valid: false, reason: 'revoked' });
@@ -50,7 +54,8 @@ router.get('/:token/valid', async (req, res, next) => {
 // POST /api/rooms — create a new room with unique token (owner only)
 router.post('/', requireOwner, async (req, res, next) => {
   try {
-    const { expiresInMinutes, viewOnce = false, note, customToken } = req.body;
+    const { expiresInMinutes, viewOnce = false, note, customToken, visibility = 'shared', isPaused = false, discord_webhook_url, allowed_origins } = req.body;
+    if (!['personal', 'shared', 'api'].includes(visibility)) return res.status(400).json({ error: 'Invalid chat visibility' });
 
     let token;
 
@@ -67,7 +72,7 @@ router.post('/', requireOwner, async (req, res, next) => {
       }
       token = sanitized;
     } else {
-      // Generate unique token (check DB)
+      // Generate clean 4-character unique token
       let attempts = 0;
       do {
         token = generateToken(4);
@@ -77,24 +82,62 @@ router.post('/', requireOwner, async (req, res, next) => {
       } while (attempts < 10);
     }
 
-    const expiresAt = expiresInMinutes
+    const pausing = Boolean(isPaused);
+    const expiresAt = (!pausing && expiresInMinutes && visibility === 'shared')
       ? new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString()
       : null;
 
-    const { data, error } = await supabase
+    const pausedRemainingSeconds = (pausing && expiresInMinutes && visibility === 'shared')
+      ? Number(expiresInMinutes) * 60
+      : null;
+
+    const insertPayload = {
+      token,
+      visibility,
+      expires_at: expiresAt,
+      is_paused: pausing,
+      paused_remaining_seconds: pausedRemainingSeconds,
+      view_once: visibility === 'shared' && viewOnce,
+      note: note || null,
+      is_active: true,
+      discord_webhook_url: discord_webhook_url || null,
+      allowed_origins: allowed_origins || null,
+    };
+
+    let { data, error } = await supabase
       .from('rooms')
-      .insert({
-        token,
-        expires_at: expiresAt,
-        view_once: viewOnce,
-        note: note || null,
-        is_active: true,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
+    // Fallback 1: If 'visibility' column doesn't exist yet
+    if (error && (error.code === '42703' || String(error.message).includes('visibility'))) {
+      delete insertPayload.visibility;
+      const retry = await supabase
+        .from('rooms')
+        .insert(insertPayload)
+        .select()
+        .single();
+      if (retry.error) throw retry.error;
+      data = { ...retry.data, visibility: 'shared' };
+      error = null;
+    }
+
+    // Fallback 2: If check constraint rooms_visibility_check doesn't permit 'api' yet
+    if (error && (error.code === '23514' || String(error.message).includes('rooms_visibility_check'))) {
+      insertPayload.visibility = 'personal';
+      const retry = await supabase
+        .from('rooms')
+        .insert(insertPayload)
+        .select()
+        .single();
+      if (retry.error) throw retry.error;
+      data = { ...retry.data, visibility: 'api' };
+      error = null;
+    }
+
     if (error) throw error;
-    res.status(201).json({ token: data.token, expiresAt: data.expires_at, id: data.id });
+    res.status(201).json(data);
   } catch (err) {
     next(err);
   }
@@ -103,13 +146,26 @@ router.post('/', requireOwner, async (req, res, next) => {
 // GET /api/rooms — list all active rooms (owner only)
 router.get('/', requireOwner, async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('rooms')
       .select(`
-        id, token, created_at, expires_at, view_once, is_active, is_paused, note, paused_remaining_seconds,
+        id, token, created_at, expires_at, view_once, is_active, is_paused, note, paused_remaining_seconds, visibility, discord_webhook_url, allowed_origins,
         uploads(id, file_name, cloudinary_url, created_at, file_type)
       `)
       .order('created_at', { ascending: false });
+
+    if (error && (error.code === '42703' || String(error.message).includes('visibility'))) {
+      const fallback = await supabase
+        .from('rooms')
+        .select(`
+          id, token, created_at, expires_at, view_once, is_active, is_paused, note, paused_remaining_seconds,
+          uploads(id, file_name, cloudinary_url, created_at, file_type)
+        `)
+        .order('created_at', { ascending: false });
+      if (fallback.error) throw fallback.error;
+      data = (fallback.data || []).map(r => ({ visibility: 'shared', discord_webhook_url: null, allowed_origins: null, ...r }));
+      error = null;
+    }
 
     if (error) throw error;
     res.json(data);
@@ -140,7 +196,8 @@ router.delete('/:token', requireOwner, async (req, res, next) => {
 
     // Notify guests connected to this room via Socket.IO
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('room_revoked', { token });
+    closeGuestAccess(io, token);
+    io.to(`room:${token}:owners`).emit('room_revoked', { token });
 
     res.json({ success: true });
   } catch (err) {
@@ -153,20 +210,33 @@ router.delete('/:token', requireOwner, async (req, res, next) => {
 router.patch('/:token', requireOwner, async (req, res, next) => {
   try {
     const { token } = req.params;
-    const { note, addMinutes, newExpiresAt, isActive, clearExpiry, isPaused } = req.body;
+    const { note, addMinutes, newExpiresAt, isActive, clearExpiry, isPaused, visibility, confirmPublish, discord_webhook_url, allowed_origins } = req.body;
 
     const { data: room, error: fetchErr } = await supabase
       .from('rooms')
-      .select('id, expires_at, is_active, is_paused, note, paused_remaining_seconds')
+      .select('*')
       .eq('token', token)
       .single();
 
     if (fetchErr || !room) return res.status(404).json({ error: 'Room not found' });
 
     const updates = {};
+    if (visibility !== undefined) {
+      if (!['personal', 'shared', 'api'].includes(visibility)) return res.status(400).json({ error: 'Invalid chat visibility' });
+      if (visibility === 'shared' && room.visibility !== 'shared' && confirmPublish !== true) {
+        return res.status(400).json({ error: 'Confirm that the entire chat history will be shared.' });
+      }
+      updates.visibility = visibility;
+    }
 
     // Handle note update
     if (note !== undefined) updates.note = note || null;
+
+    // Handle Discord webhook URL
+    if (discord_webhook_url !== undefined) updates.discord_webhook_url = discord_webhook_url || null;
+
+    // Handle Allowed Origins (CORS Whitelist)
+    if (allowed_origins !== undefined) updates.allowed_origins = allowed_origins || null;
 
     // Handle active toggle (reactivation)
     if (isActive !== undefined) updates.is_active = Boolean(isActive);
@@ -210,22 +280,36 @@ router.patch('/:token', requireOwner, async (req, res, next) => {
       }
     }
 
+    const effectiveVisibility = updates.visibility ?? room.visibility;
+    if (effectiveVisibility === 'personal' || effectiveVisibility === 'api') {
+      updates.expires_at = null;
+      updates.paused_remaining_seconds = null;
+      updates.is_paused = false;
+      updates.view_once = false;
+      if (visibility === 'personal' || visibility === 'api') updates.is_active = true;
+    }
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No valid fields to update.' });
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('rooms')
       .update(updates)
       .eq('token', token)
       .select()
       .single();
 
+    if (error && (error.code === '42703' || String(error.message).includes('visibility'))) {
+      return res.status(400).json({ error: 'Database column "visibility" is not present in Supabase yet. Please run the SQL migration in Supabase SQL Editor.' });
+    }
+
     if (error) throw error;
 
     // Broadcast to connected guests so their timers and status update live
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('room_updated', {
+    if (!guestsCanAccess(data)) closeGuestAccess(io, token);
+    await broadcastRoomEvent(io, token, 'room_updated', {
+      visibility: data.visibility,
       token,
       expiresAt: data.expires_at,
       note: data.note,
@@ -307,7 +391,8 @@ router.delete('/:token/permanent', requireOwner, async (req, res, next) => {
 
     // Notify any active listeners
     const io = req.app.get('io');
-    io.to(`room:${token}`).emit('room_revoked', { token });
+    closeGuestAccess(io, token);
+    io.to(`room:${token}:owners`).emit('room_revoked', { token });
 
     res.json({ success: true, message: 'Room and all associated data permanently deleted' });
   } catch (err) {

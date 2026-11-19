@@ -7,6 +7,10 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../lib/supabase');
+const roomAccess = require('../middleware/roomAccess');
+const requireOwner = require('../middleware/requireOwner');
+const { broadcastRoomEvent, closeGuestAccess } = require('../lib/roomEvents');
+router.use((req, res, next) => req.headers['x-room-token'] ? roomAccess(req, res, next) : requireOwner(req, res, next));
 const { screenshotUpload, roomFileUpload, deleteFromCloudinary } = require('../lib/cloudinary');
 
 // Decide multer storage based on whether roomToken is present
@@ -92,7 +96,7 @@ router.post('/', (req, res, next) => {
       // Emit Socket.IO event if guest upload (notify owner)
       if (roomToken) {
         const io = req.app.get('io');
-        io.to(`room:${roomToken}`).emit('new_file', {
+        await broadcastRoomEvent(io, roomToken, 'new_file', {
           ...upload,
           roomToken,
         });
@@ -101,7 +105,8 @@ router.post('/', (req, res, next) => {
         if (roomId) {
           const { data: room } = await supabase.from('rooms').select('view_once').eq('id', roomId).single();
           if (room?.view_once) {
-            io.to(`room:${roomToken}`).emit('room_revoked', { token: roomToken });
+            closeGuestAccess(io, roomToken);
+            io.to(`room:${roomToken}:owners`).emit('room_revoked', { token: roomToken });
           }
         }
       }

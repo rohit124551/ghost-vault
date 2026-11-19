@@ -9,10 +9,23 @@ CREATE TABLE IF NOT EXISTS rooms (
   expires_at  TIMESTAMPTZ,                 -- nullable = no auto-expire
   view_once   BOOLEAN DEFAULT FALSE,       -- auto-revoke after first file received
   note        TEXT,                        -- optional purpose/note for the room
+  visibility  TEXT NOT NULL DEFAULT 'shared' CHECK (visibility IN ('personal', 'shared', 'api')),
   is_active   BOOLEAN DEFAULT TRUE,
   is_paused   BOOLEAN DEFAULT FALSE,       -- true if owner temporarily suspended access
   paused_remaining_seconds INTEGER         -- captures exact seconds left when paused
 );
+
+-- Idempotent column upgrades for pre-existing rooms table
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_paused BOOLEAN DEFAULT FALSE;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS paused_remaining_seconds INTEGER;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS discord_webhook_url TEXT;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS allowed_origins TEXT;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS visibility TEXT;
+UPDATE rooms SET visibility = 'shared' WHERE visibility IS NULL;
+ALTER TABLE rooms ALTER COLUMN visibility SET DEFAULT 'shared';
+ALTER TABLE rooms ALTER COLUMN visibility SET NOT NULL;
+ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_visibility_check;
+ALTER TABLE rooms ADD CONSTRAINT rooms_visibility_check CHECK (visibility IN ('personal', 'shared', 'api'));
 
 CREATE INDEX IF NOT EXISTS rooms_token_idx ON rooms(token);
 
@@ -40,6 +53,7 @@ CREATE INDEX IF NOT EXISTS uploads_room_idx    ON uploads(room_id, created_at AS
 -- RLS: backend uses service_role for all writes; owner reads their own via JWT
 ALTER TABLE uploads ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Owner reads own uploads" ON uploads;
 CREATE POLICY "Owner reads own uploads" ON uploads
   FOR SELECT USING (auth.uid() = owner_id);
 
@@ -60,6 +74,10 @@ CREATE TABLE IF NOT EXISTS messages (
   viewed_at   TIMESTAMPTZ,         -- when the timer started
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Idempotent column upgrades for pre-existing messages table
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS burn_after_seconds INTEGER;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS viewed_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS messages_room_idx ON messages(room_id, created_at ASC);
 

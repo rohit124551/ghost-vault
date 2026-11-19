@@ -1,0 +1,29 @@
+.confirmation-overlay {
+  position: fixed; inset: 0; z-index: 20000; padding: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgb(0 0 0 / 65%); backdrop-filter: blur(6px);
+}
+.confirmation-card {
+  max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain;
+  width: 100%; max-width: 440px; padding: 24px; border-radius: 16px;
+  background: var(--bg-card); color: var(--text-primary);
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+}
+.confirmation-card h2 { font-size: 20px; font-weight: 700; margin: 12px 0; }
+.confirmation-card p { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.confirmation-card .confirmation-item {
+  padding: 10px 12px; margin-bottom: 12px; border-radius: 8px;
+  background: var(--bg-base); color: var(--text-primary); overflow-wrap: anywhere;
+  max-height: 120px; overflow-y: auto;
+}
+.confirmation-icon, .confirmation-card .confirmation-error { color: var(--danger); }
+.confirmation-error { margin-top: 12px; }
+.confirmation-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+.confirmation-actions button { min-height: 44px; justify-content: center; }
+.confirmation-actions .confirmation-submit { background: #b91c1c; color: white; }
+.confirmation-submit:hover:not(:disabled) { background: #991b1b; }
+.confirmation-actions button:disabled { opacity: .55; cursor: wait; }
+@media (max-width: 480px) {
+  .confirmation-actions { flex-direction: column; }
+  .confirmation-actions button { width: 100%; white-space: normal; }
+}

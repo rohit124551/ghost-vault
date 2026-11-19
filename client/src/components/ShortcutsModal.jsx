@@ -39,7 +39,7 @@ export default function ShortcutsModal() {
           >
             <div className="flex items-center justify-between p-4 border-b border-borderBase bg-bgBase/50">
               <div className="flex items-center gap-2 text-textPrimary font-bold tracking-wide">
-                <Keyboard size={18} className="text-cyan-400" />
+                <Keyboard size={18} className="text-accent" />
                 <span>Keyboard Shortcuts & Markdown</span>
               </div>
               <button 
@@ -54,7 +54,7 @@ export default function ShortcutsModal() {
               
               {/* Markdown Section */}
               <section>
-                <h3 className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-widest mb-4 flex items-center gap-2">
                   <FileText size={14} /> Markdown Chat Formatting
                 </h3>
                 <div className="grid gap-2">
@@ -67,7 +67,7 @@ export default function ShortcutsModal() {
 
               {/* Global Section */}
               <section>
-                <h3 className="text-xs font-mono font-bold text-purple-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Command size={14} /> Global Shortcuts
                 </h3>
                 <div className="grid gap-2">
@@ -80,7 +80,7 @@ export default function ShortcutsModal() {
 
               {/* Chat Section */}
               <section>
-                <h3 className="text-xs font-mono font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Keyboard size={14} /> Chat & Room Shortcuts
                 </h3>
                 <div className="grid gap-2">

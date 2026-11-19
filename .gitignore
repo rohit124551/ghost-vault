@@ -39,3 +39,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Memory & Local Dev Notes
+memory/
+.memory/

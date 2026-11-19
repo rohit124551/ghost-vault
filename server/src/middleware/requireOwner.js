@@ -1,4 +1,5 @@
 const supabase = require('../lib/supabase');
+const { isConfiguredOwner } = require('../lib/roomAccess');
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL;
 
@@ -7,6 +8,7 @@ const OWNER_EMAIL = process.env.OWNER_EMAIL;
  * Attaches req.user = { id, email }
  */
 async function requireOwner(req, res, next) {
+  if (!OWNER_EMAIL) return res.status(503).json({ error: 'Configure OWNER_EMAIL before using this private workspace.' });
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Missing authorization token' });
@@ -20,7 +22,7 @@ async function requireOwner(req, res, next) {
   }
 
   // Fix 4 — owner email lock: double-check at infrastructure level
-  if (OWNER_EMAIL && user.email !== OWNER_EMAIL) {
+  if (!isConfiguredOwner(user, OWNER_EMAIL)) {
     return res.status(403).json({ error: 'Access denied. This app is private.' });
   }
 

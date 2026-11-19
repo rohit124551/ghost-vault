@@ -1,0 +1,38 @@
+.dashboard-shell { height: 100dvh; padding-top: var(--safe-top); }
+.dashboard-main, .tunnel-list { min-height: 0; }
+.dashboard-status { flex-wrap: wrap; overflow-wrap: anywhere; max-width: 100%; }
+.dashboard-status > span { min-width: 0; }
+.dashboard-scroll > div, .dashboard-scroll section { min-width: 0; }
+.dashboard-scroll section > div:first-child { gap: 12px; flex-wrap: wrap; }
+.dashboard-scroll section h2 { font-size: 12px; letter-spacing: .06em; }
+.dashboard-sidebar button { min-height: 40px; }
+.dashboard-sidebar > div:last-child { overflow-y: auto; flex-shrink: 0; max-height: 50%; }
+.row-actions { flex-shrink: 0; }
+.room-row > div:first-child > div { flex-wrap: wrap; }
+.upload-dropzone { padding: 16px; text-align: center; }
+.dashboard-more-sheet { max-height: calc(100dvh - 24px); overflow-y: auto; padding-bottom: max(24px, var(--safe-bottom)); }
+
+@media (min-width: 768px) and (max-width: 1100px) {
+  .dashboard-sidebar.w-64 { width: 212px; }
+  .tunnel-list { width: 260px; }
+  .compact-room-row { flex-wrap: wrap; gap: 8px; }
+  .compact-room-row .row-actions { margin-left: auto; }
+}
+
+@media (max-width: 767px) {
+  .dashboard-bottom-nav { height: calc(64px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); }
+  .dashboard-scroll { padding-bottom: calc(96px + var(--safe-bottom)); }
+  .tunnel-list { padding-bottom: calc(64px + var(--safe-bottom)); }
+  .dashboard-shell button { min-height: 44px; min-width: 44px; }
+  .dashboard-bottom-nav button { flex: 1; }
+  .dashboard-bottom-nav span { font-size: 10px; letter-spacing: .04em; }
+  .asset-row { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; }
+  .asset-row .row-actions { grid-column: 1 / -1; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 8px; }
+  .asset-row > div:nth-child(2) > div:last-child { flex-wrap: wrap; gap: 6px; }
+  .room-row { flex-wrap: wrap; gap: 8px; }
+  .room-row > div:first-child { flex-basis: 100%; }
+  .room-row > div:last-child { margin-left: auto; }
+  .compact-room-row { flex-wrap: wrap; gap: 8px; }
+  .compact-room-row .row-actions { margin-left: auto; }
+  .upload-dropzone kbd { display: none; }
+}

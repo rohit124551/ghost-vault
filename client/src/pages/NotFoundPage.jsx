@@ -8,17 +8,14 @@ export default function NotFoundPage() {
   const location = useLocation();
   const [countdown, setCountdown] = useState(8);
 
-  // Determine context from the URL to show a better message
   const isRoomLink = location.pathname.startsWith('/r/') || location.pathname.startsWith('/burn/');
   const token = location.state?.token;
-  const title = location.state?.reason === 'paused' ? (
-    <>Tunnel {token && <span className="text-amber-500 font-mono tracking-widest">{token}</span>} Paused</>
-  ) : isRoomLink ? (
+
+  const title = isRoomLink ? (
     <>Tunnel {token && <span className="text-danger font-mono tracking-widest">{token}</span>} Destroyed</>
   ) : '404 — Not Found';
-  const subtitle = location.state?.reason === 'paused'
-    ? 'This link has been temporarily suspended by the owner. Access is restricted.'
-    : isRoomLink
+
+  const subtitle = isRoomLink
     ? 'This link has expired, been revoked, or never existed.'
     : 'The page you are looking for does not exist.';
 
@@ -55,11 +52,11 @@ export default function NotFoundPage() {
       <div className="relative z-10 flex flex-col items-center text-center max-w-md w-full">
         
         {/* Icon */}
-        <div className="w-24 h-24 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(239,68,68,0.15)]">
-          <ShieldOff size={44} className="text-danger" />
+        <div className="w-24 h-24 rounded-2xl bg-danger/10 border border-danger/20 text-danger flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(239,68,68,0.15)]">
+          <ShieldOff size={44} />
         </div>
 
-        {/* Large faded 404 */}
+        {/* Large faded text */}
         <div
           className="font-display font-black text-[100px] leading-none tracking-tighter text-textGhost/10 select-none absolute -top-2 pointer-events-none"
           aria-hidden="true"
