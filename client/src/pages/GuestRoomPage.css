@@ -37,6 +37,16 @@
   }
 }
 
+@media (max-width: 768px) {
+  @supports (backdrop-filter:blur(12px)) or (-webkit-backdrop-filter:blur(12px)) {
+    .guest-vault-container {
+      background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+    }
+  }
+}
+
 /* ── Navbar ── */
 .guest-navbar {
   padding: 16px 24px;

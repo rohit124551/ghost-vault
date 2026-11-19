@@ -1751,24 +1751,21 @@ export default function DashboardPage() {
     joinRoom(room.token);
   };
 
-  const handleOwnerSendText = async (text: string, burn_after_seconds: number | null = null, reply_to_id: string | null = null) => {
+  const handleOwnerSendText = async (text: string, burn_after_seconds: number | null = null, reply_to_id: string | null = null, is_thread_reply = false) => {
     if (!chatRoom) return;
-    try {
-      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/text`, { content: text, sender: 'owner', burn_after_seconds, reply_to_id });
-      setChatMessages(prev => {
-        if (prev.some(m => m.id === res.data.id)) return prev;
-        return [...prev, res.data];
-      });
-    } catch (err: any) { 
-      toast.error(err.response?.status === 413 ? 'Payload too large' : (err.response?.data?.error || 'TX failed')); 
-    }
+    const res = await api.post(`/api/rooms/${chatRoom.token}/messages/text`, { content: text, sender: 'owner', burn_after_seconds, reply_to_id, is_thread_reply });
+    setChatMessages(prev => {
+      if (prev.some(m => m.id === res.data.id)) return prev;
+      return [...prev, res.data];
+    });
   };
 
-  const handleOwnerSendFile = async (file: File, burn_after_seconds: number | null = null, reply_to_id: string | null = null, onProgress?: (progressEvent: any) => void) => {
+  const handleOwnerSendFile = async (file: File, burn_after_seconds: number | null = null, reply_to_id: string | null = null, onProgress?: (progressEvent: any) => void, isThreadReply = false) => {
     if (!chatRoom) return;
     const fd = new FormData();
     fd.append('file', file);
     fd.append('sender', 'owner');
+    if (isThreadReply) fd.append('is_thread_reply', 'true');
     fd.append('fileName', file.name);
     if (burn_after_seconds) {
       fd.append('burn_after_seconds', burn_after_seconds.toString());
@@ -1776,18 +1773,14 @@ export default function DashboardPage() {
     if (reply_to_id) {
       fd.append('reply_to_id', reply_to_id);
     }
-    try {
-      const res = await api.post(`/api/rooms/${chatRoom.token}/messages/file`, fd, { 
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: onProgress
-      });
-      setChatMessages(prev => {
-        if (prev.some(m => m.id === res.data.id)) return prev;
-        return [...prev, res.data];
-      });
-    } catch (err: any) { 
-      toast.error(err.response?.status === 413 ? 'File too large (Max size: 50MB)' : (err.response?.data?.error || 'TX failed'), { duration: 5000 }); 
-    }
+    const res = await api.post(`/api/rooms/${chatRoom.token}/messages/file`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+    });
+    setChatMessages(prev => {
+      if (prev.some(m => m.id === res.data.id)) return prev;
+      return [...prev, res.data];
+    });
   };
 
   const handleDeleteMessage = async (id: string) => {
@@ -2476,6 +2469,8 @@ export default function DashboardPage() {
                     <ErrorBoundary title="Chat Stream Error" onReset={() => openChat(chatRoom)}>
                       <ChatWindow
                         key={chatRoom.token}
+                        socket={socket} token={chatRoom.token} updateMessages={setChatMessages}
+                        paused={chatRoom.is_paused} slug={chatRoom.note || chatRoom.token} invite={BASE_URL + "/r/" + chatRoom.token}
                         messages={chatMessages}
                         onSendText={handleOwnerSendText}
                         onSendFile={handleOwnerSendFile}

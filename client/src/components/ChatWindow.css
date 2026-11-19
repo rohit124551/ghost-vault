@@ -90,8 +90,7 @@
 /* Scroll bottom btn */
 .chat-scroll-bottom {
   position: absolute;
-  bottom: 85px;
-  /* Above input bar */
+  bottom: 12px;
   right: 20px;
   width: 38px;
   height: 38px;

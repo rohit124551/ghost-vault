@@ -11,7 +11,7 @@ import './GuestRoomPage.css';
 import useDialogAccessibility from '../hooks/useDialogAccessibility';
 
 const API_URL    = import.meta.env.VITE_API_URL    || 'http://localhost:4000';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 /* ── Bug Report Modal (guest version) ── */
 function BugReportModal({ token, onClose }) {
@@ -200,9 +200,9 @@ export default function GuestRoomPage() {
 
   // Socket.IO
   useEffect(() => {
-    const s = io(SOCKET_URL, { transports: ['websocket'] });
+    const s = io(SOCKET_URL);
     setSocket(s);
-    s.emit('join:room', { token });
+    s.on('connect', () => s.emit('join:room', { token }));
 
     s.on('new_message', (msg) => {
       if (msg.roomToken === token || msg.room_token === token) {
@@ -263,48 +263,45 @@ export default function GuestRoomPage() {
   }, [token, navigate]);
 
   // Guest sends text
-  const handleSendText = async (text, burn_after_seconds = null, reply_to_id = null) => {
+  const handleSendText = async (text, burn_after_seconds = null, reply_to_id = null, is_thread_reply = false) => {
     if (status !== 'valid') return;
-    try {
-      const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/text`, {
-        content: text,
-        sender: 'guest',
-        burn_after_seconds,
-        reply_to_id
-      });
-      setMessages(prev => {
-        if (prev.some(m => m.id === res.data.id)) return prev;
-        return [...prev, res.data];
-      });
-    } catch { /* silently fail */ }
+    const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/text`, {
+      content: text,
+      sender: 'guest',
+      is_thread_reply,
+      burn_after_seconds,
+      reply_to_id
+    });
+    if (res.data.editKey) sessionStorage.setItem('edit:' + res.data.id, res.data.editKey);
+    setMessages(prev => {
+      if (prev.some(m => m.id === res.data.id)) return prev;
+      return [...prev, res.data];
+    });
   };
 
   // Guest sends file
-  const handleSendFile = async (file, burn_after_seconds = null, reply_to_id = null, onProgress) => {
+  const handleSendFile = async (file, burn_after_seconds = null, reply_to_id = null, onProgress, isThreadReply = false) => {
     if (status !== 'valid') return;
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('sender', 'guest');
-      formData.append('fileName', file.name);
-      if (burn_after_seconds) {
-        formData.append('burn_after_seconds', burn_after_seconds);
-      }
-      if (reply_to_id) {
-        formData.append('reply_to_id', reply_to_id);
-      }
-      
-      const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: onProgress
-      });
-      setMessages(prev => {
-        if (prev.some(m => m.id === res.data.id)) return prev;
-        return [...prev, res.data];
-      });
-    } catch (err) {
-      toast.error(err.response?.status === 413 ? 'File too large (Max size: 50MB)' : 'Failed to send message', { duration: 5000 });
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('sender', 'guest');
+    if (isThreadReply) formData.append('is_thread_reply', 'true');
+    formData.append('fileName', file.name);
+    if (burn_after_seconds) {
+      formData.append('burn_after_seconds', burn_after_seconds);
     }
+    if (reply_to_id) {
+      formData.append('reply_to_id', reply_to_id);
+    }
+
+    const res = await axios.post(`${API_URL}/api/rooms/${token}/messages/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+    });
+    setMessages(prev => {
+      if (prev.some(m => m.id === res.data.id)) return prev;
+      return [...prev, res.data];
+    });
   };
 
   const handleReact = async (msgId, emoji, forceRemove) => {
@@ -417,6 +414,7 @@ export default function GuestRoomPage() {
         <div className="guest-chat-wrapper">
           <ChatWindow
             key={token}
+            socket={socket} token={token} updateMessages={setMessages} audience="shared"
             messages={messages}
             onSendText={handleSendText}
             onSendFile={handleSendFile}

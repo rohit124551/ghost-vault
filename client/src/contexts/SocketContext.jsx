@@ -16,14 +16,14 @@ export function SocketProvider({ children }) {
     roomsRef.current.add(token);
     const current = socketRef.current;
     const { data } = await supabase.auth.getSession();
-    if (current?.connected && current === socketRef.current) {
-      current.emit('join:room', { token, accessToken: data.session?.access_token });
+    if (data.session?.access_token && current?.connected && current === socketRef.current) {
+      current.emit('join:room', { token, asOwner: true, accessToken: data.session.access_token });
     }
   }, []);
 
   useEffect(() => {
     if (!user?.id) { roomsRef.current.clear(); setSocket(null); setConnected(false); return; }
-    const current = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000', { transports: ['websocket'] });
+    const current = io(import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || 'http://localhost:4000');
     socketRef.current = current;
     setSocket(current);
     current.on('connect', () => {

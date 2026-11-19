@@ -1,7 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, CheckSquare, ZoomIn, ZoomOut, RotateCcw, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff, Clock, Trash2 } from 'lucide-react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { createPortal } from 'react-dom';
+import ChatHeader from './ChatHeader';
+import { VoicePlayer, LinkCard, audioTime } from './ChatMedia';
+import { useChatActivity } from './useChatActivity';
+import { summary, imageGroups } from './chatTools';
+import { CheckCheck, NotebookPen, Users, Terminal, Send, Paperclip, Download, X, File, ChevronDown, Copy, Check, CheckSquare, ZoomIn, Mic, Square, SmilePlus, Timer, EyeOff, Reply, Pin, PinOff, Clock, Trash2 } from 'lucide-react';
+import MessageText from './MessageText';
+import ThreadPanel from './ThreadPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import FullScreenImageViewer from './FullScreenImageViewer';
@@ -9,6 +14,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import { formatBytes } from '../utils/formatBytes';
 import { createChatScrollController } from '../utils/chatScroll';
 import './ChatWindow.css';
+import './ChatPolish.css';
 import { useConfirmAction } from '../hooks/useConfirmAction';
 
 /* ── Helpers ── */
@@ -18,86 +24,6 @@ function getAvatarColor(seed) {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function parseInlineMarkdown(text) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part1, i1) => {
-    if (/^https?:\/\/[^\s]+$/.test(part1)) {
-      return <a key={`url-${i1}`} href={part1} target="_blank" rel="noreferrer" className="chat-link">{part1}</a>;
-    }
-
-    // Inline code
-    const codeRegex = /`([^`]+)`/g;
-    return part1.split(codeRegex).map((part2, i2) => {
-      if (i2 % 2 === 1) return <code key={`code-${i1}-${i2}`} className="chat-inline-code">{part2}</code>;
-
-      // Bold (handles **bold** or *bold*)
-      const boldRegex = /\*{1,2}([^*]+)\*{1,2}/g;
-      return part2.split(boldRegex).map((part3, i3) => {
-        if (i3 % 2 === 1) return <strong key={`bold-${i1}-${i2}-${i3}`}>{part3}</strong>;
-
-        // Italics
-        const italicRegex = /_([^_]+)_/g;
-        return part3.split(italicRegex).map((part4, i4) => {
-          if (i4 % 2 === 1) return <em key={`italic-${i1}-${i2}-${i3}-${i4}`}>{part4}</em>;
-          return part4;
-        });
-      });
-    });
-  });
-}
-
-function renderMessageText(text) {
-  // Check for code blocks ```language ... ```
-  const codeBlockRegex = /```([\w-]*)\n([\s\S]*?)```/g;
-
-  const elements = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    // Add preceding text (parsed for inline markdown)
-    if (match.index > lastIndex) {
-      const preceding = text.slice(lastIndex, match.index);
-      elements.push(
-        <span key={`text-${lastIndex}`}>{parseInlineMarkdown(preceding)}</span>
-      );
-    }
-
-    // Add code block
-    const language = match[1] || 'text';
-    const code = match[2];
-    elements.push(
-      <div key={`code-${match.index}`} className="bubble-code-wrapper">
-        <SyntaxHighlighter
-          language={language}
-          style={atomDark}
-          customStyle={{
-            margin: '4px 0',
-            padding: '12px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            background: 'rgba(0,0,0,0.4)',
-          }}
-          wrapLines={true}
-        >
-          {code.trim()}
-        </SyntaxHighlighter>
-      </div>
-    );
-
-    lastIndex = codeBlockRegex.lastIndex;
-  }
-
-  // Add remaining text
-  if (lastIndex < text.length) {
-    elements.push(
-      <span key={`text-${lastIndex}`}>{parseInlineMarkdown(text.slice(lastIndex))}</span>
-    );
-  }
-
-  return elements;
 }
 
 // Helper to get lower res thumbnail
@@ -353,17 +279,17 @@ function ApiEventCard({ event, createdAt }) {
 
 /* ── Message Bubble ── */
 function MessageBubble({ 
-  msg, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages,
-  isClusterStart = true, isClusterEnd = true, isClusterMiddle = false,
-  isSelectionMode = false, isSelected = false, onToggleSelect
+  msg, token, onThread, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages,
+  isClusterStart = true, isClusterEnd = true,
+  isSelectionMode = false, onToggleSelect
 }) {
   const [mediaExpanded, setMediaExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [confirmAction, confirmationDialog] = useConfirmAction();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState('bottom');
+  const [point, setPoint] = useState(null);
+  const optionsRef = useRef(null);
   const [quickHeartAnim, setQuickHeartAnim] = useState(false);
   
   // Swipe to reply & long-press select state
@@ -378,14 +304,43 @@ function MessageBubble({
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !optionsRef.current?.contains(e.target)) {
         setMenuOpen(false);
         setShowEmojiPicker(false);
       }
     };
+    const escape = e => { if (e.key === 'Escape') setMenuOpen(false); };
+    if (menuOpen) document.addEventListener('keydown', escape);
     if (menuOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', escape);
+    };
   }, [menuOpen]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    const position = () => {
+      const menu = menuRef.current;
+      const anchor = optionsRef.current?.getBoundingClientRect();
+      if (!menu || (!point && !anchor)) return;
+      const x = point?.x ?? anchor.left;
+      const below = point?.y ?? anchor.bottom;
+      const above = point?.y ?? anchor.top;
+      const left = Math.max(8, Math.min(x, innerWidth - menu.offsetWidth - 8));
+      const top = below + menu.offsetHeight + 8 <= innerHeight ? below : Math.max(8, above - menu.offsetHeight);
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+    };
+    position();
+    window.addEventListener('resize', position);
+    const dismiss = e => { if (!menuRef.current?.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('scroll', dismiss, true);
+    return () => {
+      window.removeEventListener('resize', position);
+      document.removeEventListener('scroll', dismiss, true);
+    };
+  }, [menuOpen, point, showEmojiPicker]);
 
   useEffect(() => {
     if (msg.type === 'burned') return;
@@ -418,8 +373,6 @@ function MessageBubble({
   const handleCopy = () => {
     const contentToCopy = (msg.type === 'image' || msg.type === 'file') ? msg.file_url : msg.content;
     copyToClipboard(contentToCopy, 'Message copied');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   // Force download even for cross-origin (Cloudinary) URLs
@@ -558,6 +511,7 @@ function MessageBubble({
         )
       )}
       <div 
+        id={`bubble-${msg.id}`}
         className={`bubble relative group ${isMe ? 'bubble--mine' : 'bubble--theirs'} ${clusterClass} ${isApiMessage ? 'bubble--api' : ''}
 ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
         onDoubleClick={(e) => {
@@ -567,12 +521,16 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
           }
         }}
         onContextMenu={(e) => {
+          if (isBlurred || isSelectionMode) return;
           e.preventDefault();
-          const spaceBelow = window.innerHeight - e.clientY;
-          setMenuPosition(spaceBelow < 250 ? 'top' : 'bottom');
+          setPoint({x:e.clientX, y:e.clientY});
+          setShowEmojiPicker(false);
           setMenuOpen(true);
         }}
       >
+        {onReact && !isBurned && !isBlurred && !isSelectionMode && <div className="quick-reactions" aria-label="Quick reactions">
+          {QUICK_EMOJIS.map(emoji => <button key={emoji} aria-label={'React ' + emoji} onClick={() => handleReactClick(emoji)}>{emoji}</button>)}
+        </div>}
         {quickHeartAnim && (
           <div className="quick-heart-popup" aria-hidden="true">
             ❤️
@@ -584,32 +542,9 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
             <Pin size={10} className="text-cyan-400" />
           </div>
         )}
-        {!isBlurred && (
-          <button 
-            className="absolute top-1 right-1 opacity-100 md:opacity-0 group-hover:opacity-100 p-1 bg-black/20 hover:bg-black/40 text-white rounded-full transition-opacity z-10 backdrop-blur-sm"
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              const rect = e.currentTarget.getBoundingClientRect();
-              const spaceBelow = window.innerHeight - rect.bottom;
-              setMenuPosition(spaceBelow < 250 ? 'top' : 'bottom');
-              setMenuOpen(true); 
-            }}
-            title="Options"
-          >
-            <ChevronDown size={14} />
-          </button>
-        )}
-
-        {menuOpen && (
-          <div 
-            ref={menuRef} 
-            className={`
-              absolute z-50 min-w-[140px] rounded-xl
-              ${menuPosition === 'top' ? 'bottom-full mb-2' : 'top-6'} 
-              ${isMe ? 'right-2' : 'left-2'} 
-              bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] 
-              flex flex-col p-1
-            `}
+        {menuOpen && createPortal(
+          <motion.div initial={{opacity:0, scale:.94}} animate={{opacity:1, scale:1}} transition={{duration:.13}}
+            ref={menuRef} className="message-options-menu"
           >
             {!isBurned && onToggleSelect && (
               <button 
@@ -629,6 +564,7 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
                 <Download size={15} className="text-textGhost" /> Download
               </button>
             )}
+            {!isBurned && onThread && <button className="thread-action" onClick={() => {setMenuOpen(false); onThread(msg);}}>Reply in thread</button>}
             {!isBurned && onReply && (
               <button className="flex items-center gap-3 px-3 py-2 hover:bg-bgHover rounded-lg text-sm text-textPrimary text-left transition-colors" onClick={() => { setMenuOpen(false); setShowEmojiPicker(false); onReply(msg); }}>
                 <Reply size={15} className="text-textGhost" /> Reply
@@ -649,15 +585,14 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
                 }}
               >
                 <SmilePlus size={15} className="text-textGhost" /> React
-                {showEmojiPicker && (
-                  <div className={`absolute ${menuPosition === 'top' ? 'bottom-0' : 'top-0'} ${isMe ? 'right-[105%]' : 'left-[105%]'} bg-bgCard border border-border shadow-[0_8px_30px_rgba(0,0,0,0.3)] rounded-xl p-1.5 flex gap-1 z-50`}>
-                    {QUICK_EMOJIS.map(e => (
-                      <span key={e} className="cursor-pointer hover:bg-bgHover p-1.5 rounded-lg text-lg transition-transform hover:scale-110" onClick={(ev) => { ev.stopPropagation(); setMenuOpen(false); setShowEmojiPicker(false); handleReactClick(e); }}>{e}</span>
-                    ))}
-                  </div>
-                )}
               </button>
             )}
+            {showEmojiPicker && <div className="message-options-emoji">
+              {QUICK_EMOJIS.map(emoji => <button key={emoji} aria-label={'React ' + emoji} onClick={() => {
+                setMenuOpen(false);
+                handleReactClick(emoji);
+              }}>{emoji}</button>)}
+            </div>}
             {!isBurned && <div className="h-[1px] bg-border my-1 mx-2" />}
             {!isBurned && (
               <button
@@ -684,7 +619,7 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
                 </button>
               </>
             )}
-          </div>
+          </motion.div>, document.body
         )}
         {/* Render Quoted Reply */}
         {msg.reply_to_id && messages && (
@@ -704,7 +639,7 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
                   {quotedMsg.sender === 'api' ? '📡 API' : quotedMsg.sender === myRole ? 'You' : quotedMsg.sender === 'owner' ? 'Owner' : 'Guest'}
                 </div>
                 <div className="truncate max-w-[200px] text-textSecondary">
-                  {quotedMsg.type === 'text' ? quotedMsg.content : `[${quotedMsg.type}]`}
+                  {summary(quotedMsg).slice(0,60)}
                 </div>
               </div>
             );
@@ -746,7 +681,8 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
               apiEvent ? (
                 <ApiEventCard event={apiEvent} createdAt={msg.created_at} />
               ) : (
-                <div className="bubble-text">{renderMessageText(msg.content)}</div>
+                <><MessageText text={msg.content}/>
+                {!msg.burn_after_seconds && msg.content?.match(/https?:\/\/[^\s<>]+/i) && <LinkCard url={msg.content.match(/https?:\/\/[^\s<>]+/i)[0]} token={token} myRole={myRole}/>}</>
               )
             )}
 
@@ -800,7 +736,7 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
 
             {msg.type === 'file' && getFileTypeFromName(msg.file_name) === 'audio' && (
               <div className="bubble-media-wrapper bubble-media-wrapper--audio">
-                <audio src={msg.file_url} controls preload="none" className="bubble-audio" />
+                <VoicePlayer url={msg.file_url}/>
                 <button className="bubble-expand-media-btn" onClick={() => setMediaExpanded(true)} title="Full Screen">
                   <ZoomIn size={14} />
                 </button>
@@ -862,7 +798,8 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
           </>
         )}
 
-        {!apiEvent && <span className="bubble-time-float">{formatTime(msg.created_at)}</span>}
+        {!apiEvent && <span className="bubble-time-float">{formatTime(msg.created_at)} {isMe && <span aria-label={msg.viewed_at || msg.seen_at ? 'Seen' : msg.delivered_at ? 'Delivered' : 'Sent'} title={msg.viewed_at || msg.seen_at ? 'Seen' : msg.delivered_at ? 'Delivered' : 'Sent'}>
+          {msg.viewed_at || msg.seen_at ? <CheckCheck size={14} color="#a5f3fc"/> : msg.delivered_at ? <CheckCheck size={14}/> : <Check size={13}/>}</span>}</span>}
 
         {/* ── Reactions ── */}
         {msg.reactions && Object.keys(msg.reactions).length > 0 && (
@@ -896,6 +833,18 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
           </div>
         )}
       </div>
+      {!isBlurred && !isSelectionMode && <button
+        type="button" ref={optionsRef} className="message-options-trigger"
+        title="Message options" aria-label="Message options" aria-expanded={menuOpen}
+        onTouchStart={e => e.stopPropagation()}
+        onClick={e => {
+          e.stopPropagation();
+          setPoint(null);
+          setShowEmojiPicker(false);
+          setMenuOpen(open => !open);
+        }}>
+        <ChevronDown size={14} aria-hidden="true"/>
+      </button>}
     </div>
   );
 }
@@ -915,8 +864,21 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
 export default function ChatWindow({
   messages, onSendText, onSendFile,
   onDelete, onBatchDelete, canDelete, onReact, onView, onBurn, onPin, loading,
-  myRole = 'owner', disabled = false, audience
+  myRole = 'owner', disabled = false, audience, socket, token, updateMessages, paused, slug, invite
 }) {
+  const [panel, setPanel] = useState('');
+  const [query, setQuery] = useState('');
+  const [threadId, setThreadId] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [sent, setSent] = useState(false);
+  const [pinIndex, setPinIndex] = useState(0);
+  const composer = useRef(null);
+  const chatRoot = useRef(null);
+  const shared = audience === 'shared' && !disabled && !paused;
+  const {peerTyping, input, apiClient} = useChatActivity({socket, token, myRole, messages, updateMessages, shared, loading});
+  const inviteUrl = invite || window.location.origin + '/r/' + token;
+  const curl = 'curl -X POST "' + apiClient.defaults.baseURL + '/api/ingest/' + encodeURIComponent(slug || token) + '" -H "Content-Type: application/json" -d \'{"title":"First event"}\'';
+  const peerName = myRole === 'owner' ? 'Guest' : 'Owner';
   const [text, setText] = useState('');
   const [timerDuration, setTimerDuration] = useState(null); // null = off
   const [showTimerPicker, setShowTimerPicker] = useState(false);
@@ -926,10 +888,69 @@ export default function ChatWindow({
   const [uploadProgress, setUploadProgress] = useState(null); // number 0-100 or null
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [previewHeight, setPreviewHeight] = useState(0);
-  const [showTimerMenu, setShowTimerMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
 
+  useLayoutEffect(() => {
+    if (composer.current) {
+      composer.current.style.height = 'auto';
+      composer.current.style.height = composer.current.scrollHeight + 'px';
+    }
+  }, [text]);
+  useEffect(() => {
+    if (sent) { const id = setTimeout(() => setSent(false), 850); return () => clearTimeout(id); }
+  }, [sent]);
+  useLayoutEffect(() => {
+    // Some mobile browsers resize only the visual viewport when the keyboard opens.
+    const viewport = window.visualViewport;
+    const root = chatRoot.current;
+    if (!viewport || !window.matchMedia('(pointer: coarse)').matches) return;
+    const fitKeyboard = () => {
+      const editingHere = root.contains(document.activeElement) && document.activeElement.matches('input,textarea');
+      const visibleBottom = viewport.offsetTop + viewport.height;
+      const inset = editingHere ? Math.max(0, root.getBoundingClientRect().bottom - visibleBottom) : 0;
+      root.style.setProperty('--keyboard-inset', inset + 'px');
+    };
+    viewport.addEventListener('resize', fitKeyboard);
+    viewport.addEventListener('scroll', fitKeyboard);
+    root.addEventListener('focusin', fitKeyboard);
+    root.addEventListener('focusout', fitKeyboard);
+    return () => {
+      viewport.removeEventListener('resize', fitKeyboard);
+      viewport.removeEventListener('scroll', fitKeyboard);
+      root.removeEventListener('focusin', fitKeyboard);
+      root.removeEventListener('focusout', fitKeyboard);
+    };
+  }, []);
+  const drafts = useRef(new Map());
+  function changeThread(next) {
+    if (sending || isRecording) return false;
+    if (next !== threadId) {
+      drafts.current.set(threadId, {text, filePreviews, replyingTo, timerDuration, voiceNotePreview, editing});
+      const draft = drafts.current.get(next);
+      drafts.current.delete(next);
+      setText(draft?.text || '');
+      setFilePreviews(draft?.filePreviews || []);
+      setReplyingTo(draft?.replyingTo || null);
+      setTimerDuration(draft?.timerDuration || null);
+      setVoiceNotePreview(draft?.voiceNotePreview || null);
+      setEditing(draft?.editing || null);
+      setShowTimerPicker(false);
+      setThreadId(next);
+      input(false);
+    }
+    return true;
+  }
+  function jump(id) {
+    setSelectedCategory('all'); setPanel('');
+    const match = messages.find(m => m.id === id);
+    const parent = match?.is_thread_reply && messages.some(m => m.id === match.reply_to_id) ? match.reply_to_id : null;
+    if (!changeThread(parent)) return;
+    if (parent) {
+      requestAnimationFrame(() => document.getElementById('thread-msg-' + id)?.scrollIntoView({block:'nearest'}));
+      return;
+    }
+    requestAnimationFrame(() => document.getElementById('msg-' + id)?.scrollIntoView({behavior:'smooth',block:'center'}));
+  }
   // Multi-message Selection & Batch Action State (WhatsApp-style)
   const [selectedIds, setSelectedIds] = useState([]);
   const [batchConfirmAction, batchConfirmationDialog] = useConfirmAction();
@@ -984,13 +1005,19 @@ export default function ChatWindow({
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === 'Escape' && selectedIds.length > 0) {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.target.closest('input,textarea,[contenteditable=true]')) {
+        e.preventDefault(); setPanel('search');
+      }
+      if (e.key === 'Escape') {
+        if (threadId) { changeThread(null); return; }
+        setReplyingTo(null); setShowTimerPicker(false); setPanel('');
+        if (editing) {setEditing(null); setText('');}
         setSelectedIds([]);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedIds.length]);
+  });
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -1024,8 +1051,10 @@ export default function ChatWindow({
 
   // Filter messages based on selected category
   const displayedMessages = useMemo(() => {
-    if (!hasApiMessages || selectedCategory === 'all') return messages || [];
-    return (messages || []).filter(m => {
+    const ids = new Set((messages || []).map(m => m.id));
+    const main = (messages || []).filter(m => !m.is_thread_reply || !ids.has(m.reply_to_id));
+    if (!hasApiMessages || selectedCategory === 'all') return main;
+    return main.filter(m => {
       const ev = tryParseApiEvent(m.content);
       if (!ev) return false;
       const cat = (ev.category || (ev.status === 'error' ? 'bug' : 'general')).toLowerCase();
@@ -1033,6 +1062,13 @@ export default function ChatWindow({
     });
   }, [messages, hasApiMessages, selectedCategory]);
 
+  const threadCounts = useMemo(() => {
+    const counts = new Map();
+    for (const m of messages || []) if (m.is_thread_reply) counts.set(m.reply_to_id, (counts.get(m.reply_to_id) || 0) + 1);
+    return counts;
+  }, [messages]);
+  const groups = useMemo(() => imageGroups(displayedMessages), [displayedMessages]);
+  const positions = useMemo(() => new Map(displayedMessages.map((m,i) => [m.id,i])), [displayedMessages]);
   const [guestId] = useState(() => {
     let id = localStorage.getItem('ghostvault_guest_id');
     if (!id) {
@@ -1049,16 +1085,6 @@ export default function ChatWindow({
   const scrollControllerRef = useRef(null);
   const threadRef = useRef(null);
   const fileInputRef = useRef(null);
-  const previewRef = useRef(null);
-
-  useEffect(() => {
-    if (previewRef.current) {
-      setPreviewHeight(previewRef.current.offsetHeight);
-    } else {
-      setPreviewHeight(0);
-    }
-  }, [filePreviews]);
-
   useLayoutEffect(() => {
     const controller = createChatScrollController(threadRef.current, contentRef.current, setShowScrollBtn);
     scrollControllerRef.current = controller;
@@ -1071,29 +1097,6 @@ export default function ChatWindow({
   useLayoutEffect(() => {
     if (!loading) scrollControllerRef.current?.sync();
   }, [loading, messages?.length]);
-
-  // Support mobile virtual viewport (prevents iOS keyboard from covering input dock)
-  useEffect(() => {
-    if (!window.visualViewport) return;
-
-    const handleResize = () => {
-      const chatBar = document.querySelector('.chat-bar');
-      if (!chatBar) return;
-      const offset = window.innerHeight - window.visualViewport.height;
-      if (offset > 120) {
-        chatBar.style.transform = `translateY(-${offset}px)`;
-      } else {
-        chatBar.style.transform = 'none';
-      }
-    };
-
-    window.visualViewport.addEventListener('resize', handleResize);
-    window.visualViewport.addEventListener('scroll', handleResize);
-    return () => {
-      window.visualViewport?.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('scroll', handleResize);
-    };
-  }, []);
 
   // Voice Note Handlers
   const startRecording = async () => {
@@ -1163,29 +1166,36 @@ export default function ChatWindow({
     }
   };
 
-  const formatRecordingTime = (seconds) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
   const handleSend = async () => {
     if (sending || disabled) return;
 
+    input(false);
+    if (editing) {
+      if (!text.trim()) return;
+      setSending(true);
+      try {
+        const {data} = await apiClient.patch('/api/rooms/' + token + '/messages/' + editing + '/text', {content:text, key:sessionStorage.getItem('edit:' + editing)});
+        updateMessages(prev => prev.map(m => m.id === editing ? data : m));
+        setText(''); setEditing(null); setSent(true);
+      } catch { toast.error('Could not save edit'); } finally {setSending(false);}
+      return;
+    }
     if (voiceNotePreview) {
       setSending(true);
-      setUploadProgress(0);
-      await onSendFile(voiceNotePreview.file, timerDuration, replyingTo?.id, (e) => {
-        if (e.total) {
-          setUploadProgress(Math.round((e.loaded * 100) / e.total));
-        }
-      });
-      setUploadProgress(null);
-      URL.revokeObjectURL(voiceNotePreview.url);
-      setVoiceNotePreview(null);
-      setTimerDuration(null);
-      setReplyingTo(null);
-      setSending(false);
+      try {
+        setUploadProgress(0);
+        await onSendFile(voiceNotePreview.file, timerDuration, threadId || replyingTo?.id, (e) => {
+          if (e.total) {
+            setUploadProgress(Math.round((e.loaded * 100) / e.total));
+          }
+        }, !!threadId);
+        setUploadProgress(null);
+        URL.revokeObjectURL(voiceNotePreview.url);
+        setVoiceNotePreview(null);
+        setTimerDuration(null);
+        setReplyingTo(null);
+        setSent(true);
+      } catch {toast.error('Could not send voice note');} finally {setSending(false); setUploadProgress(null);}
       return;
     }
 
@@ -1196,35 +1206,45 @@ export default function ChatWindow({
       if (filePreviews.length > 0) {
         for (const p of filePreviews) {
           setUploadProgress(0);
-          await onSendFile(p.file, timerDuration, replyingTo?.id, (e) => {
+          await onSendFile(p.file, timerDuration, threadId || replyingTo?.id, (e) => {
             if (e.total) {
               setUploadProgress(Math.round((e.loaded * 100) / e.total));
             }
-          });
+          }, !!threadId);
           setUploadProgress(null);
           setFilePreviews(prev => prev.slice(1));
         }
       }
       if (text.trim()) {
-        await onSendText(text.trim(), timerDuration, replyingTo?.id);
+        await onSendText(text.trim(), timerDuration, threadId || replyingTo?.id, !!threadId);
         setText('');
       }
+      setSent(true);
       setTimerDuration(null);
       setReplyingTo(null);
     } catch (err) {
-      toast.error('Failed to send message');
+      toast.error(err.response?.status === 413 ? 'Attachment too large' : 'Message could not be sent. Your draft is ready to retry.');
     } finally {
+      setUploadProgress(null);
       setSending(false);
     }
   };
 
   const handleKey = (e) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'ArrowUp' && !text && !filePreviews.length && !replyingTo && !threadId) {
+      const last = messages.slice().reverse().find(m => m.sender === myRole && m.type === 'text' && !m.burn_after_seconds &&
+        (myRole === 'owner' || sessionStorage.getItem('edit:' + m.id)));
+      if (last) {e.preventDefault();setText(last.content);setEditing(last.id);}
+      return;
+    }
     if (e.key === 'Enter') {
       if (e.ctrlKey || e.shiftKey) {
         if (e.ctrlKey) {
           e.preventDefault();
           const cursor = e.target.selectionStart;
           const newValue = text.slice(0, cursor) + '\n' + text.slice(e.target.selectionEnd);
+          if (newValue.length > 2000) return;
           setText(newValue);
           setTimeout(() => {
             e.target.selectionStart = cursor + 1;
@@ -1241,7 +1261,7 @@ export default function ChatWindow({
   };
 
   const handlePaste = (e) => {
-    if (disabled) return;
+    if (disabled || editing) return;
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -1281,7 +1301,7 @@ export default function ChatWindow({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    if (disabled) return;
+    if (disabled || editing) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files).map(f => ({ file: f, name: f.name }));
@@ -1304,6 +1324,7 @@ export default function ChatWindow({
 
   return (
     <div
+      ref={chatRoot}
       className={`chat-window ${isDragging ? 'chat-window--dragging' : ''}`}
       style={{ position: 'relative' }}
       onDragOver={handleDragOver}
@@ -1361,6 +1382,7 @@ export default function ChatWindow({
         </div>
       )}
 
+      <ChatHeader panel={panel} setPanel={setPanel} query={query} setQuery={setQuery} messages={messages || []} jump={jump}/>
       {isDragging && (
         <div className="chat-drag-overlay">
           <div className="chat-drag-content">
@@ -1369,45 +1391,29 @@ export default function ChatWindow({
           </div>
         </div>
       )}
-      <AnimatePresence initial={false}>
-        {showScrollBtn && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.5, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.5, y: 20 }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="chat-scroll-bottom"
-            style={{ bottom: 85 + previewHeight }}
-            type="button"
-            aria-label="Scroll to latest message"
-            onClick={() => scrollControllerRef.current?.jumpToLatest()}
-          >
-            <ChevronDown size={18} strokeWidth={3} />
-          </motion.button>
-        )}
-      </AnimatePresence>
+
 
       {/* ── Pinned Message Banner ── */}
       {(() => {
-        const pinnedMsg = messages?.slice().reverse().find(m => m.is_pinned);
+        const pins = (messages || []).filter(m => m.is_pinned).reverse();
+        const current = pinIndex % pins.length;
+        const pinnedMsg = pins[current];
         if (!pinnedMsg) return null;
         return (
           <div 
             className="chat-pinned-banner"
             onClick={() => {
-              // Optionally scroll to message
-              const el = document.getElementById(`msg-${pinnedMsg.id}`);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              jump(pinnedMsg.id);
             }}
           >
             <div className="chat-pinned-icon">
               <Pin size={14} className="text-cyan-400" />
             </div>
             <div className="chat-pinned-content">
-              <span className="chat-pinned-title">Pinned Message</span>
-              <span className="chat-pinned-text truncate">{pinnedMsg.content || 'Attached file...'}</span>
+              <span className="chat-pinned-title">Pinned {current + 1}/{pins.length}</span>
+              <span className="chat-pinned-text truncate">{summary(pinnedMsg)}</span>
             </div>
+            {pins.length > 1 && [-1,1].map(step => <button key={step} aria-label={step < 0 ? 'Previous pin' : 'Next pin'} onClick={e => {e.stopPropagation();setPinIndex((current + step + pins.length) % pins.length);}}>{step < 0 ? '‹' : '›'}</button>)}
             {onPin && (
               <button 
                 className="chat-pinned-close" 
@@ -1493,298 +1499,334 @@ export default function ChatWindow({
       )}
 
       {/* ── Message thread ── */}
-      <div className="chat-thread" ref={threadRef} tabIndex={0} role="region" aria-label="Messages">
-        <div className="chat-thread-content" ref={contentRef}>
+      <div className={'chat-workspace' + (threadId ? ' has-thread' : '')}>
+        <div className="timeline-pane">
+          <div className="chat-thread" ref={threadRef} tabIndex={0} role="region" aria-label="Messages">
+            <div className="chat-thread-content" ref={contentRef}>
 
-        {loading ? (
-          <div className="chat-empty"><div className="spinner" /></div>
-        ) : displayedMessages.length === 0 ? (
-          <div className="chat-empty">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" style={{ color: 'var(--text-ghost)', marginBottom: 8 }}>
-              <path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10A8 8 0 0 0 12 2z" />
-              <circle cx="9" cy="10" r="1" fill="currentColor" />
-              <circle cx="15" cy="10" r="1" fill="currentColor" />
-            </svg>
-            <p style={{ fontSize: 12, color: 'var(--text-ghost)' }}>
-              {selectedCategory !== 'all' ? `No ${selectedCategory} events found` : 'No messages yet'}
-            </p>
-            {selectedCategory !== 'all' && (
-              <button 
-                className="mt-2 text-xs text-accent hover:underline font-ui font-medium"
-                onClick={() => setSelectedCategory('all')}
-              >
-                Clear filter (View All)
-              </button>
-            )}
-          </div>
-        ) : (
-          displayedMessages.map((msg, i) => {
-            const prevMsg = i > 0 ? displayedMessages[i - 1] : null;
-            const nextMsg = i < displayedMessages.length - 1 ? displayedMessages[i + 1] : null;
-
-            let showDate = false;
-            if (!prevMsg) {
-              showDate = true;
-            } else {
-              const currentDate = new Date(msg.created_at).toDateString();
-              const prevDate = new Date(prevMsg.created_at).toDateString();
-              if (currentDate !== prevDate) {
-                showDate = true;
-              }
-            }
-
-            const nextShowDate = nextMsg && (new Date(nextMsg.created_at).toDateString() !== new Date(msg.created_at).toDateString());
-
-            // Same sender within 2 minutes (120000ms), uninterrupted by date separators or API events
-            const isSameSenderPrev = !showDate && prevMsg && (prevMsg.sender === msg.sender) && 
-              (Math.abs(new Date(msg.created_at) - new Date(prevMsg.created_at)) < 120000) &&
-              msg.sender !== 'api' && prevMsg.sender !== 'api';
-
-            const isSameSenderNext = !nextShowDate && nextMsg && (nextMsg.sender === msg.sender) &&
-              (Math.abs(new Date(nextMsg.created_at) - new Date(msg.created_at)) < 120000) &&
-              msg.sender !== 'api' && nextMsg.sender !== 'api';
-
-            const isClusterStart = !isSameSenderPrev;
-            const isClusterEnd = !isSameSenderNext;
-            const isClusterMiddle = isSameSenderPrev && isSameSenderNext;
-
-            const isSelected = selectedIds.includes(msg.id);
-            const isSelectionMode = selectedIds.length > 0;
-            const isMe = msg.sender === myRole;
-
-            return (
-              <div key={msg.id || i} id={`msg-${msg.id}`} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-                {showDate && (
-                  <div className="chat-date-separator">
-                    <span>{formatDateSeparator(msg.created_at)}</span>
-                  </div>
-                )}
-                <div 
-                  className={`chat-message-item ${isMe ? 'chat-message-item--right' : 'chat-message-item--left'} ${isSelected ? 'chat-message-item--selected' : ''}`}
-                  onClick={() => {
-                    if (isSelectionMode) {
-                      toggleSelectMessage(msg.id);
-                    }
-                  }}
-                >
-                  {isSelectionMode && (
-                    <div 
-                      className={`chat-selection-checkbox ${isSelected ? 'chat-selection-checkbox--checked' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelectMessage(msg.id);
-                      }}
-                      title={isSelected ? 'Deselect message' : 'Select message'}
-                    >
-                      {isSelected && <Check size={12} strokeWidth={3} />}
-                    </div>
-                  )}
-                  <MessageBubble
-                    msg={msg}
-                    myRole={myRole}
-                    onDelete={onDelete}
-                    canDelete={canDelete}
-                    onReact={onReact}
-                    onView={onView}
-                    onBurn={onBurn}
-                    onPin={onPin}
-                    guestId={guestId}
-                    onReply={setReplyingTo}
-                    messages={messages}
-                    isClusterStart={isClusterStart}
-                    isClusterEnd={isClusterEnd}
-                    isClusterMiddle={isClusterMiddle}
-                    isSelectionMode={isSelectionMode}
-                    isSelected={isSelected}
-                    onToggleSelect={toggleSelectMessage}
-                  />
-                </div>
-              </div>
-            );
-          })
-        )}
-        </div>
-      </div>
-
-      {filePreviews.length > 0 && !disabled && (
-        <div className="chat-previews-container" ref={previewRef}>
-          <div className="chat-previews-list">
-            {filePreviews.map((p, idx) => (
-              <div key={idx} className="chat-file-chip relative overflow-hidden flex items-center pr-2">
-                <File size={13} className="z-10 relative shrink-0" />
-                <span className="chat-file-chip-name z-10 relative truncate flex-1">{p.name}</span>
-                {sending && uploadProgress !== null && idx === 0 ? (
-                  <span className="z-10 relative text-[10px] font-bold text-cyan-400 bg-[#0f172a] px-1.5 py-0.5 rounded shadow-sm shrink-0 ml-2">
-                    {uploadProgress}%
-                  </span>
-                ) : (
-                  <button className="chat-file-chip-remove z-10 relative shrink-0 ml-2" onClick={() => removeFile(idx)} disabled={sending}>
-                    <X size={11} />
+            {loading ? (
+              <div className="chat-skeleton" role="status" aria-label="Loading messages">{[38,57,29,46].map(w => <i key={w} style={{width:w+'%'}}/>)}</div>
+            ) : displayedMessages.length === 0 ? (
+              <div className="chat-empty">
+                {audience === 'personal' ? <NotebookPen size={38}/> : audience === 'api' ? <Terminal size={38}/> : <Users size={38}/>}
+                <h3>{selectedCategory !== 'all' ? 'No matching events' : audience === 'personal' ? 'Your private notebook' : audience === 'api' ? 'Waiting for your first event' : 'Start a conversation'}</h3>
+                {selectedCategory === 'all' && (audience === 'personal' ? <p>Only you can see this.</p> : audience === 'api' ? <code>{curl}</code> :
+                  shared && myRole === 'owner' ? <><code>{inviteUrl}</code><button onClick={() => copyToClipboard(inviteUrl,'Invite link copied')}>Copy invite link</button></> : <p>{paused ? 'Guest access is paused.' : 'Send the first message below.'}</p>)}
+                {selectedCategory !== 'all' && (
+                  <button
+                    className="mt-2 text-xs text-accent hover:underline font-ui font-medium"
+                    onClick={() => setSelectedCategory('all')}
+                  >
+                    Clear filter (View All)
                   </button>
                 )}
-                {sending && uploadProgress !== null && idx === 0 && (
-                  <div className="absolute left-0 top-0 bottom-0 bg-cyan-500/20 z-0 pointer-events-none" style={{ width: `${uploadProgress}%`, transition: 'width 0.2s' }}></div>
-                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            ) : (
+              groups.map(group => <div key={group[0].id} className={group.length > 1 ? 'image-mosaic ' + (group[0].sender === myRole ? 'mine' : '') : 'message-group'}>{group.map(msg => {
+                const i = positions.get(msg.id);
+                const prevMsg = i > 0 ? displayedMessages[i - 1] : null;
+                const nextMsg = i < displayedMessages.length - 1 ? displayedMessages[i + 1] : null;
 
-      {/* ── Input bar ── */}
-      {disabled ? (
-        <div className="chat-bar chat-bar--disabled">
-          <div className="chat-disabled-notice">
-            <X size={14} style={{ opacity: 0.7 }} />
-            <span>Chat expired/revoked</span>
-          </div>
-        </div>
-      ) : (
-        <div className="chat-bar flex-col items-stretch">
-          {replyingTo && (
-            <div className="flex items-center justify-between px-3 py-2 bg-black/10 border-b border-borderBase/50 rounded-t-xl mb-[-4px] z-10 mx-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Reply size={14} className="text-cyan-400 shrink-0" />
-                <div className="text-xs truncate">
-                  <span className="font-bold text-cyan-400 mr-2">Replying to {replyingTo.sender === myRole ? 'yourself' : replyingTo.sender === 'owner' ? 'Owner' : 'Guest'}:</span>
-                  <span className="text-textSecondary">{replyingTo.type === 'text' ? replyingTo.content : `[${replyingTo.type}]`}</span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setReplyingTo(null)}
-                className="p-1 hover:bg-white/10 rounded-full text-textGhost hover:text-white transition-colors shrink-0"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-          <div className="chat-input-wrapper z-20">
-            <button
-              className="chat-attach"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach file"
-              disabled={sending}
-            >
-              <Paperclip size={16} />
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              multiple
-              style={{ display: 'none' }}
-            />
-            <textarea
-              className="chat-input"
-              placeholder="Message..."
-              value={text}
-              onChange={e => setText(e.target.value)}
-              onKeyDown={handleKey}
-              onPaste={handlePaste}
-              rows={1}
-              disabled={sending || isRecording || voiceNotePreview}
-              style={{ display: (isRecording || voiceNotePreview) ? 'none' : 'block' }}
-            />
-            {isRecording && (
-              <div className="chat-recording-indicator">
-                <div className="recording-dot"></div>
-                <span className="recording-time">{formatRecordingTime(recordingTime)}</span>
-                <button className="chat-cancel-record" onClick={cancelRecording}>Cancel</button>
-              </div>
-            )}
-            {voiceNotePreview && (
-              <div className="chat-recording-indicator" style={{ gap: '8px' }}>
-                <audio src={voiceNotePreview.url} controls className="bubble-audio" style={{ height: '32px', flex: 1, minWidth: 0 }} />
-                <button className="chat-cancel-record" style={{ color: 'var(--danger)' }} onClick={() => {
-                  URL.revokeObjectURL(voiceNotePreview.url);
-                  setVoiceNotePreview(null);
-                }}>
-                  <X size={16} />
-                </button>
-              </div>
-            )}
+                let showDate = false;
+                if (!prevMsg) {
+                  showDate = true;
+                } else {
+                  const currentDate = new Date(msg.created_at).toDateString();
+                  const prevDate = new Date(prevMsg.created_at).toDateString();
+                  if (currentDate !== prevDate) {
+                    showDate = true;
+                  }
+                }
 
-            <div className="relative">
-              <button
-                className={`chat-timer-toggle ${timerDuration ? 'chat-timer-toggle--active' : ''}`}
-                onClick={() => setShowTimerPicker(!showTimerPicker)}
-                title="Self-Destruct Timer"
-                disabled={sending}
-              >
-                <Timer size={16} />
-                {timerDuration && (
-                  <span className="chat-timer-badge">
-                    {timerDuration < 60 ? `${timerDuration}s` : timerDuration < 3600 ? `${Math.floor(timerDuration / 60)}m` : `${Math.floor(timerDuration / 3600)}h`}
-                  </span>
-                )}
-              </button>
-              {showTimerPicker && (
-                <div className="chat-timer-picker">
-                  <div className="text-[10px] uppercase font-bold text-textGhost mb-2 tracking-widest">Self Destruct</div>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <button className={`btn btn-sm ${timerDuration === null ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(null); setShowTimerPicker(false); }}>Off</button>
-                    <button className={`btn btn-sm ${timerDuration === 10 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(10); setShowTimerPicker(false); }}>10s</button>
-                    <button className={`btn btn-sm ${timerDuration === 60 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(60); setShowTimerPicker(false); }}>1m</button>
-                    <button className={`btn btn-sm ${timerDuration === 3600 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(3600); setShowTimerPicker(false); }}>1h</button>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="Custom (s)"
-                      className="flex-1 bg-bgBase border border-borderBase rounded-md text-xs px-2 py-1 outline-none focus:border-cyan-500 text-textPrimary font-mono w-20"
-                      value={customTimerInput}
-                      onChange={(e) => setCustomTimerInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && customTimerInput) {
-                          setTimerDuration(parseInt(customTimerInput) || null);
-                          setShowTimerPicker(false);
+                const nextShowDate = nextMsg && (new Date(nextMsg.created_at).toDateString() !== new Date(msg.created_at).toDateString());
+
+                // Same sender within 2 minutes (120000ms), uninterrupted by date separators or API events
+                const isSameSenderPrev = !showDate && prevMsg && (prevMsg.sender === msg.sender) &&
+                  (Math.abs(new Date(msg.created_at) - new Date(prevMsg.created_at)) < 120000) &&
+                  msg.sender !== 'api' && prevMsg.sender !== 'api';
+
+                const isSameSenderNext = !nextShowDate && nextMsg && (nextMsg.sender === msg.sender) &&
+                  (Math.abs(new Date(nextMsg.created_at) - new Date(msg.created_at)) < 120000) &&
+                  msg.sender !== 'api' && nextMsg.sender !== 'api';
+
+                const isClusterStart = !isSameSenderPrev;
+                const isClusterEnd = !isSameSenderNext;
+
+                const isSelected = selectedIds.includes(msg.id);
+                const isSelectionMode = selectedIds.length > 0;
+                const isMe = msg.sender === myRole;
+
+                return (
+                  <div key={msg.id || i} style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+                    {showDate && (
+                      <div className="chat-date-separator">
+                        <span>{formatDateSeparator(msg.created_at)}</span>
+                      </div>
+                    )}
+                    <div
+                      className={`chat-message-item ${isMe ? 'chat-message-item--right' : 'chat-message-item--left'} ${isSelected ? 'chat-message-item--selected' : ''}`}
+                      onClick={() => {
+                        if (isSelectionMode) {
+                          toggleSelectMessage(msg.id);
                         }
                       }}
-                    />
-                    <button
-                      className="btn btn-primary btn-sm px-3"
-                      onClick={() => {
-                        if (customTimerInput) setTimerDuration(parseInt(customTimerInput) || null);
-                        setShowTimerPicker(false);
-                      }}
                     >
-                      Set
-                    </button>
+                      {isSelectionMode && (
+                        <div
+                          className={`chat-selection-checkbox ${isSelected ? 'chat-selection-checkbox--checked' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelectMessage(msg.id);
+                          }}
+                          title={isSelected ? 'Deselect message' : 'Select message'}
+                        >
+                          {isSelected && <Check size={12} strokeWidth={3} />}
+                        </div>
+                      )}
+                      <MessageBubble
+                        msg={msg} token={token} onThread={m => changeThread(m.is_thread_reply ? m.reply_to_id : m.id)}
+                        myRole={myRole}
+                        onDelete={onDelete}
+                        canDelete={canDelete}
+                        onReact={onReact}
+                        onView={onView}
+                        onBurn={onBurn}
+                        onPin={onPin}
+                        guestId={guestId}
+                        onReply={m => {if (changeThread(null)) {setEditing(null);setReplyingTo(m);composer.current?.focus();}}}
+                        messages={messages}
+                        isClusterStart={isClusterStart}
+                        isClusterEnd={isClusterEnd}
+                        isSelectionMode={isSelectionMode}
+                        onToggleSelect={toggleSelectMessage}
+                      />
+                      {threadCounts.has(msg.id) && <button className="thread-count" onClick={() => changeThread(msg.id)}>
+                        {threadCounts.get(msg.id)} {threadCounts.get(msg.id) === 1 ? 'reply' : 'replies'}
+                      </button>}
+                    </div>
                   </div>
+                );
+              })}</div>)
+            )}
+            {sending && !editing && <div className="pending-bubble" role="status">
+              <span>{voiceNotePreview ? 'Voice note' : filePreviews[0]?.name || text.trim()}</span><Clock size={13} aria-label="Sending"/>
+            </div>}
+            </div>
+          </div>
+
+          <AnimatePresence initial={false}>
+            {showScrollBtn && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: 20 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="chat-scroll-bottom"
+                type="button"
+                aria-label="Scroll to latest message"
+                onClick={() => scrollControllerRef.current?.jumpToLatest()}
+              >
+                <ChevronDown size={18} strokeWidth={3} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+        {threadId && <ThreadPanel key={threadId} parent={messages.find(m => m.id === threadId)}
+          replies={messages.filter(m => m.reply_to_id === threadId)} myRole={myRole}
+          onClose={() => changeThread(null)} renderTimed={m => <MessageBubble msg={m} token={token}
+            myRole={myRole} guestId={guestId} onBurn={onBurn} onReact={onReact} onView={onView}/>}
+        />}
+        <div className="composer-dock">
+          {filePreviews.length > 0 && !disabled && (
+            <div className="chat-previews-container">
+              <div className="chat-previews-list">
+                {filePreviews.map((p, idx) => (
+                  <div key={idx} className="chat-file-chip relative overflow-hidden flex items-center pr-2">
+                    <File size={13} className="z-10 relative shrink-0" />
+                    <span className="chat-file-chip-name z-10 relative truncate flex-1">{p.name}</span>
+                    {sending && uploadProgress !== null && idx === 0 ? (
+                      <span className="z-10 relative text-[10px] font-bold text-cyan-400 bg-[#0f172a] px-1.5 py-0.5 rounded shadow-sm shrink-0 ml-2">
+                        {uploadProgress}%
+                      </span>
+                    ) : (
+                      <button className="chat-file-chip-remove z-10 relative shrink-0 ml-2" onClick={() => removeFile(idx)} disabled={sending}>
+                        <X size={11} />
+                      </button>
+                    )}
+                    {sending && uploadProgress !== null && idx === 0 && (
+                      <div className="absolute left-0 top-0 bottom-0 bg-cyan-500/20 z-0 pointer-events-none" style={{ width: `${uploadProgress}%`, transition: 'width 0.2s' }}></div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Input bar ── */}
+          {disabled ? (
+            <div className="chat-bar chat-bar--disabled">
+              <div className="chat-disabled-notice">
+                <X size={14} style={{ opacity: 0.7 }} />
+                <span>Chat expired/revoked</span>
+              </div>
+            </div>
+          ) : (
+            <div className="chat-bar flex-col items-stretch">
+              {replyingTo && !threadId && (
+                <div style={{borderLeft:"3px solid " + (replyingTo.sender === myRole ? "#10b981" : "#3b82f6")}} className="flex items-center justify-between px-3 py-2 bg-black/10 border-b border-borderBase/50 rounded-t-xl mb-[-4px] z-10 mx-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {replyingTo.type === 'image' && !replyingTo.burn_after_seconds ? <img src={replyingTo.file_url} width="36" height="32" alt="Quoted attachment"/> : <Reply size={14}/>}
+                    <div className="text-xs truncate">
+                      <span className="font-bold text-cyan-400 mr-2">Replying to {replyingTo.sender === myRole ? 'yourself' : replyingTo.sender === 'owner' ? 'Owner' : 'Guest'}:</span>
+                      <span className="text-textSecondary">{summary(replyingTo).slice(0,60)}</span>
+                    </div>
+                  </div>
+                  <button
+                    aria-label="Cancel reply" onClick={() => setReplyingTo(null)}
+                    className="p-1 hover:bg-white/10 rounded-full text-textGhost hover:text-white transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               )}
-            </div>
+              {editing && <small>Editing message <button onClick={() => {setText('');setEditing(null);}}>Cancel</button></small>}
+              {shared && peerTyping && <div className="typing-pill" role="status"><i/> {peerName} is typing…</div>}
+              <div className={'chat-input-wrapper z-20' + (sent ? ' send-confirmed' : '')}>
+                <button
+                  className="chat-attach"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach file"
+                  disabled={sending || !!editing}
+                >
+                  <Paperclip size={16} />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  multiple
+                  style={{ display: 'none' }}
+                />
+                <textarea ref={composer} maxLength={2000} aria-label={threadId ? "Thread reply" : "Message"}
+                  className="chat-input"
+                  placeholder={editing ? "Edit message" : threadId ? "Reply to thread…" : audience === "personal" ? "Write a private note…" : "Write a message…"}
+                  value={text}
+                  onChange={e => {setText(e.target.value); input(!!e.target.value.trim());}}
+                  onKeyDown={handleKey}
+                  onPaste={handlePaste}
+                  rows={1}
+                  disabled={sending || isRecording || voiceNotePreview}
+                  style={{ display: (isRecording || voiceNotePreview) ? 'none' : 'block' }}
+                />
+                {isRecording && (
+                  <div className="chat-recording-indicator">
+                    <div className="recording-dot"></div>
+                    <span className="recording-time">{audioTime(recordingTime)}</span>
+                    <button className="chat-cancel-record" onClick={cancelRecording}>Cancel</button>
+                  </div>
+                )}
+                {voiceNotePreview && (
+                  <div className="chat-recording-indicator" style={{ gap: '8px' }}>
+                    <VoicePlayer key={voiceNotePreview.url} url={voiceNotePreview.url}/>
+                    <button className="chat-cancel-record" style={{ color: 'var(--danger)' }} onClick={() => {
+                      URL.revokeObjectURL(voiceNotePreview.url);
+                      setVoiceNotePreview(null);
+                    }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
 
-            {text.trim() || filePreviews.length > 0 || voiceNotePreview ? (
-              <button
-                className="chat-send chat-send--active"
-                onClick={handleSend}
-                disabled={sending}
-                title="Send"
-              >
-                {sending ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Send size={14} />}
-              </button>
-            ) : isRecording ? (
-              <button
-                className="chat-send chat-record chat-record--active"
-                onClick={stopRecording}
-                title="Stop & Attach"
-              >
-                <Square size={14} fill="currentColor" />
-              </button>
-            ) : (
-              <button
-                className="chat-send chat-record"
-                onClick={startRecording}
-                disabled={sending}
-                title="Record Voice Note"
-              >
-                <Mic size={16} />
-              </button>
-            )}
-          </div>
+                <div className="relative">
+                  <button
+                    className={`chat-timer-toggle ${timerDuration ? 'chat-timer-toggle--active' : ''}`}
+                    onClick={() => setShowTimerPicker(!showTimerPicker)}
+                    title="Self-Destruct Timer"
+                    disabled={sending || !!editing}
+                  >
+                    <Timer size={16} />
+                    {timerDuration && (
+                      <span className="chat-timer-badge">
+                        {timerDuration < 60 ? `${timerDuration}s` : timerDuration < 3600 ? `${Math.floor(timerDuration / 60)}m` : `${Math.floor(timerDuration / 3600)}h`}
+                      </span>
+                    )}
+                  </button>
+                  {showTimerPicker && (
+                    <div className="chat-timer-picker">
+                      <div className="text-[10px] uppercase font-bold text-textGhost mb-2 tracking-widest">Self Destruct</div>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <button className={`btn btn-sm ${timerDuration === null ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(null); setShowTimerPicker(false); }}>Off</button>
+                        <button className={`btn btn-sm ${timerDuration === 10 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(10); setShowTimerPicker(false); }}>10s</button>
+                        <button className={`btn btn-sm ${timerDuration === 60 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(60); setShowTimerPicker(false); }}>1m</button>
+                        <button className={`btn btn-sm ${timerDuration === 3600 ? 'btn-primary' : 'bg-bgBase border border-borderBase text-textSecondary'}`} onClick={() => { setTimerDuration(3600); setShowTimerPicker(false); }}>1h</button>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Custom (s)"
+                          className="flex-1 bg-bgBase border border-borderBase rounded-md text-xs px-2 py-1 outline-none focus:border-cyan-500 text-textPrimary font-mono w-20"
+                          value={customTimerInput}
+                          onChange={(e) => setCustomTimerInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customTimerInput) {
+                              setTimerDuration(parseInt(customTimerInput) || null);
+                              setShowTimerPicker(false);
+                            }
+                          }}
+                        />
+                        <button
+                          className="btn btn-primary btn-sm px-3"
+                          onClick={() => {
+                            if (customTimerInput) setTimerDuration(parseInt(customTimerInput) || null);
+                            setShowTimerPicker(false);
+                          }}
+                        >
+                          Set
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {text.length > 1600 && <small className={'char-count ' + (text.length === 2000 ? 'limit' : text.length >= 1800 ? 'warn' : '')}>{text.length}/2000</small>}
+                {isRecording ? (
+                  <button
+                    className="chat-send chat-record chat-record--active"
+                    onClick={stopRecording}
+                    title="Stop & Attach"
+                  >
+                    <Square size={14} fill="currentColor" />
+                  </button>
+                ) : !(text.trim() || filePreviews.length || voiceNotePreview || editing) && (
+                  <button
+                    className="chat-send chat-record"
+                    onClick={startRecording}
+                    disabled={sending}
+                    title="Record Voice Note"
+                  >
+                    <Mic size={16} />
+                  </button>
+                )}
+                  <button
+                    className={'chat-send ' + (text.trim() || filePreviews.length || voiceNotePreview ? 'chat-send--active' : '')}
+                    onClick={handleSend}
+                    disabled={sending || isRecording || !(text.trim() || filePreviews.length || voiceNotePreview)}
+                    title={editing ? "Save edit" : "Send"}
+                  >
+                    <AnimatePresence initial={false} mode="wait">
+                      <motion.span key={sending ? 'pending' : sent ? 'sent' : 'ready'}
+                        initial={{opacity:0,scale:.8}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.85}}
+                        transition={{duration:.09}}>
+                        {sending ? <Clock size={15}/> : sent ? <Check size={16}/> : <Send size={16}/>}
+                      </motion.span>
+                    </AnimatePresence>
+                  </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS messages (
 -- Idempotent column upgrades for pre-existing messages table
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS burn_after_seconds INTEGER;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS viewed_at TIMESTAMPTZ;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS seen_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS messages_room_idx ON messages(room_id, created_at ASC);
 
@@ -101,3 +103,5 @@ CREATE INDEX IF NOT EXISTS bug_reports_created_idx ON bug_reports(created_at DES
 
 ALTER TABLE bug_reports ENABLE ROW LEVEL SECURITY;
 -- All access via service_role key on backend, bypassing RLS
+
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS is_thread_reply boolean NOT NULL DEFAULT false;

@@ -2,6 +2,10 @@
  * GET  /api/rooms/:token/messages  — full history (public, token-validated)
  * POST /api/rooms/:token/messages  — save new message (text or file metadata)
  */
+const crypto = require('node:crypto');
+function editKey(id) {
+  return crypto.createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY).update(String(id)).digest('hex');
+}
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 const supabase = require('../lib/supabase');
@@ -57,21 +61,58 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    // 4. Fetch messages
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('room_id', room.id)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    res.json(data || []);
+    // PostgREST caps single responses. Search and exports need the complete history.
+    const history = [];
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+      const {data, error} = await supabase.from('messages').select('*').eq('room_id', room.id)
+        .order('created_at', {ascending: true}).order('id', {ascending: true}).range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      history.push(...data);
+      if (data.length < pageSize) break;
+    }
+    res.json(history);
   } catch (err) {
     next(err);
   }
 });
 
 // POST /api/rooms/:token/messages — save text message (guest or owner)
+router.patch('/:id/text', async (req, res, next) => {
+  try {
+    const {id} = req.params;
+    const {content, key} = req.body;
+    if (typeof content !== 'string' || !content.trim() || content.length > 2000) return res.sendStatus(400);
+    if (!req.owner && (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key) ||
+        !crypto.timingSafeEqual(Buffer.from(key), Buffer.from(editKey(id))))) return res.sendStatus(403);
+    if (!await getRoomByToken(req.params.token)) return res.sendStatus(404);
+    const {data, error} = await supabase.from('messages').update({content: content.trim()})
+      .eq('id', id).eq('room_id', req.room.id).eq('type', 'text').eq('sender', req.owner ? 'owner' : 'guest')
+      .is('burn_after_seconds', null).select().maybeSingle();
+    if (error) throw error;
+    if (!data) return res.sendStatus(404);
+    await broadcastRoomEvent(req.app.get('io'), req.params.token, 'chat_patch', {token: req.params.token, ids: [id], patch: {content: data.content}});
+    res.json(data);
+  } catch (err) { next(err); }
+});
+
+router.post('/receipts', async (req, res, next) => {
+  try {
+    const {ids, seen} = req.body;
+    if (!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string' || !/^[a-z0-9-]{1,64}$/i.test(id))) return res.sendStatus(400);
+    const now = new Date().toISOString();
+    const patch = seen === true ? {seen_at: now, delivered_at: now} : {delivered_at: now};
+    let query = supabase.from('messages').update(patch).eq('room_id', req.room.id)
+      .eq('sender', req.owner ? 'guest' : 'owner').in('id', ids).is(seen === true ? 'seen_at' : 'delivered_at', null);
+    if (seen === true) query = query.is('burn_after_seconds', null);
+    const {data, error} = await query.select('id');
+    if (error) throw error;
+    const changed = data.map(m => m.id);
+    if (changed.length) await broadcastRoomEvent(req.app.get('io'), req.params.token, 'chat_patch', {token: req.params.token, ids: changed, patch});
+    res.json({ids: changed, patch});
+  } catch (err) { next(err); }
+});
+
 router.post('/text', async (req, res, next) => {
   try {
     const room = await getRoomByToken(req.params.token);
@@ -79,7 +120,8 @@ router.post('/text', async (req, res, next) => {
 
     const { content, burn_after_seconds = null, reply_to_id = null } = req.body;
     const sender = req.owner ? 'owner' : 'guest';
-    if (!content?.trim()) return res.status(400).json({ error: 'content is required' });
+    if (typeof content !== 'string' || content.length > 2000) return res.status(400).json({error: 'Use up to 2000 characters'});
+    if (!content.trim()) return res.status(400).json({ error: 'content is required' });
 
     // If sender is owner, verify JWT
     if (sender === 'owner') {
@@ -103,7 +145,8 @@ router.post('/text', async (req, res, next) => {
         type: 'text', 
         content: content.trim(),
         burn_after_seconds: burn_after_seconds ? parseInt(burn_after_seconds, 10) : null,
-        reply_to_id
+        reply_to_id,
+        ...(reply_to_id && req.body.is_thread_reply === true && {is_thread_reply: true})
       })
       .select()
       .single();
@@ -114,7 +157,7 @@ router.post('/text', async (req, res, next) => {
     const io = req.app.get('io');
     await broadcastRoomEvent(io, req.params.token, 'new_message', { ...message, roomToken: req.params.token });
 
-    res.status(201).json(message);
+    res.status(201).json(sender === 'guest' ? {...message, editKey: editKey(message.id)} : message);
   } catch (err) {
     next(err);
   }
@@ -149,7 +192,8 @@ router.post('/file', (req, res, next) => {
           file_name: req.body.fileName || req.file.originalname,
           file_size: req.file.size,
           burn_after_seconds,
-          reply_to_id
+          reply_to_id,
+          ...(reply_to_id && req.body.is_thread_reply === 'true' && {is_thread_reply: true})
         })
         .select()
         .single();
