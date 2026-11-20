@@ -86,6 +86,7 @@ app.use('/api/uploads',               uploadsRouter);
 app.use('/api/burn',                  burnRouter);
 app.use('/api/rooms',                 roomsRouter);
 app.use('/api/rooms/:token/messages', messagesRouter); // Fix 2/3
+app.use('/api/rooms/:token/transfers', require('./routes/transfers'));
 app.use('/api/link-preview', require('./routes/linkPreview'));
 app.use('/api/bugs',                  bugsRouter);
 

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { emptyHistory, roomHistory } from '../utils/roomHistory';
+import React, { useReducer, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useDropzone } from 'react-dropzone';
@@ -18,7 +19,7 @@ import {
   Plus, QrCode, X, Check, Timer, Eye, Info,
   File, Image as ImageIcon, ChevronLeft, ChevronRight, ChevronDown, HardDriveDownload, MessageSquare, Search,
   Terminal, ShieldAlert, Activity, Database, Server, FolderLock, Menu, LogOut, Code, Cpu, Sun, Moon, Ghost, Home,
-  Bug, Pencil, Zap, RefreshCw, MailOpen, Pause, Play, MoreVertical, Globe, Lock, ShieldCheck, BookOpen
+  Bug, Pencil, Zap, RefreshCw, MailOpen, Pause, Play, Globe, Lock, ShieldCheck, BookOpen
 } from 'lucide-react';
 import GhostLogo from '../components/GhostLogo';
 import { copyToClipboard } from '../utils/clipboard';
@@ -1333,7 +1334,7 @@ function CompactRoomRow({ room, onQR, onRevoke, onTogglePause, onPermanentDelete
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [confirmAction, confirmationDialog] = useConfirmAction();
-  const { user, logout } = useAuth();
+  const { user, signOut: logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -1350,8 +1351,15 @@ export default function DashboardPage() {
   const [docsRoom, setDocsRoom] = useState<any>(null);
   const [showBugModal, setShowBugModal] = useState(false);
   const [chatRoom, setChatRoom] = useState<any>(null);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [chatLoading, setChatLoading] = useState(false);
+  const [history, dispatchHistory] = useReducer(roomHistory, emptyHistory);
+  const historyRequest = useRef<AbortController | null>(null);
+  const roomToken = chatRoom?.token;
+  const chatMessages = history.token === roomToken ? history.rows : [];
+  const chatLoading = history.token !== roomToken || history.pending !== null;
+  const setChatMessages = useCallback((update: (rows: any[]) => any[]) => {
+    dispatchHistory({type: 'update', token: roomToken, update});
+  }, [roomToken]);
+  useEffect(() => () => historyRequest.current?.abort(), []);
   const [page, setPage] = useState(1);
   const [totalUploads, setTotalUploads] = useState(0);
   const [pasteFlash, setPasteFlash] = useState(false);
@@ -1359,10 +1367,6 @@ export default function DashboardPage() {
   const { socket, joinRoom } = useSocket();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  const [showChatMenu, setShowChatMenu] = useState(false);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
-
-
   const [showHistory, setShowHistory] = useState(false);
   const [clientIp, setClientIp] = useState<string>('FETCHING...');
   const [tunnelSearch, setTunnelSearch] = useState('');
@@ -1376,16 +1380,6 @@ export default function DashboardPage() {
         if (dir) setDownloadDir(dir);
       });
     }
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (chatMenuRef.current && !chatMenuRef.current.contains(event.target as Node)) {
-        setShowChatMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSetDownloadDir = async () => {
@@ -1419,15 +1413,37 @@ export default function DashboardPage() {
       .catch(() => setClientIp('UNKNOWN'));
   }, []);
 
+  const [reload, setReload] = useState(0);
+  const [roomError, setRoomError] = useState(0);
+  const [fileError, setFileError] = useState(0);
+  const [roomsLoading, setRoomsLoading] = useState(true);
   useEffect(() => {
-    Promise.all([api.get(`/api/uploads?page=${page}`), api.get('/api/rooms')])
-      .then(([u, r]) => {
-        setUploads(u.data.uploads || []);
-        setTotalUploads(u.data.total || 0);
-        setRooms(r.data || []);
-      })
-      .finally(() => setLoading(false));
-  }, [page]);
+    const controller = new AbortController();
+    setRoomsLoading(true);
+    api.get('/api/rooms', {signal: controller.signal})
+      .then(({data}) => {setRooms(data); setRoomError(0);})
+      .catch(err => {if (!controller.signal.aborted) setRoomError(err.response?.status || -1);})
+      .finally(() => {if (!controller.signal.aborted) setRoomsLoading(false);});
+    return () => controller.abort();
+  }, [user.id, reload]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    api.get('/api/uploads?page=' + page, {signal: controller.signal})
+      .then(({data}) => {setUploads(data.uploads || []); setTotalUploads(data.total || 0); setFileError(0);})
+      .catch(err => {if (!controller.signal.aborted) setFileError(err.response?.status || -1);})
+      .finally(() => {if (!controller.signal.aborted) setLoading(false);});
+    return () => controller.abort();
+  }, [user.id, page, reload]);
+
+  function loadError(status: number, section: string) {
+    return <div role="alert" className="p-3 text-sm text-textSecondary">
+      {status === 401 ? 'Your session could not be verified.' : 'Could not load ' + section + '.'}
+      <button className="ml-2 underline" onClick={() => setReload(n => n + 1)}>Retry</button>
+      {status === 401 && <button className="ml-2 underline" onClick={() => logout({scope:'local'})}>Sign in again</button>}
+    </div>;
+  }
 
   useEffect(() => {
     if (activeTab !== 'bugs') return;
@@ -1478,7 +1494,7 @@ export default function DashboardPage() {
         : r
       ));
       if (chatRoom?.token === token) {
-        setChatRoom((prev: any) => ({ ...prev, expires_at: expiresAt, note: newNote, is_active: isActive ?? prev?.is_active, visibility: visibility ?? prev?.visibility, is_paused: isPaused ?? prev?.is_paused }));
+        setChatRoom((prev: any) => prev?.token !== token ? prev : ({ ...prev, expires_at: expiresAt, note: newNote, is_active: isActive ?? prev?.is_active, visibility: visibility ?? prev?.visibility, is_paused: isPaused ?? prev?.is_paused }));
       }
     };
     const onMessageViewed = ({ id, viewed_at, roomToken }: any) => {
@@ -1539,11 +1555,11 @@ export default function DashboardPage() {
       if (e.key === 'Escape') {
         if (document.querySelector('.fs-viewer-overlay')) return;
         
-        if (chatRoom) closeChat();
+        if (chatRoom && !(e.target instanceof Element && e.target.closest('.chat-window'))) closeChat();
         if (showCreateRoom) setShowCreateRoom(false);
         if (qrRoom) setQrRoom(null);
       }
-      if (e.key === '/' && (chatRoom || activeTab === 'nodes') && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      if (e.key === '/' && (!chatRoom && activeTab === 'nodes') && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         const searchInput = document.getElementById('tunnel-search');
         searchInput?.focus();
@@ -1708,7 +1724,7 @@ export default function DashboardPage() {
     try {
       await api.delete(`/api/rooms/${token}`);
       if (qrRoom?.token === token) setQrRoom(null);
-      if (chatRoom?.token === token) setChatRoom(null);
+      setChatRoom((prev: any) => prev?.token === token ? null : prev);
       toast.success('Tunnel access revoked');
       fetchRooms();
     } catch (err: any) {
@@ -1731,7 +1747,7 @@ export default function DashboardPage() {
       await api.delete(`/api/rooms/${token}/permanent`);
       setRooms(prev => prev.filter(r => r.token !== token));
       if (qrRoom?.token === token) setQrRoom(null);
-      if (chatRoom?.token === token) setChatRoom(null);
+      setChatRoom((prev: any) => prev?.token === token ? null : prev);
       toast.success('Data wiped');
     } catch { toast.error('Wipe failed'); return false; }
   };
@@ -1742,13 +1758,20 @@ export default function DashboardPage() {
     setDesktopSidebarOpen(false); // Auto-close main sidebar for focus
     // Set hash so back button works reliably on mobile
     window.location.hash = 'chat';
-    setChatLoading(true);
+    historyRequest.current?.abort();
+    const request = new AbortController();
+    historyRequest.current = request;
+    const token = room.token;
+    dispatchHistory({type:'open', token, request});
+    joinRoom(token);
     try {
-      const res = await api.get(`/api/rooms/${room.token}/messages`);
-      setChatMessages(res.data || []);
-    } catch { toast.error('Failed to init terminal'); }
-    finally { setChatLoading(false); }
-    joinRoom(room.token);
+      const response = await api.get('/api/rooms/' + token + '/messages', {signal:request.signal});
+      dispatchHistory({type:'loaded', token, request, rows:response.data || []});
+    } catch {
+      if (request.signal.aborted) return;
+      dispatchHistory({type:'loaded', token, request, rows:[]});
+      toast.error('Could not load conversation');
+    }
   };
 
   const handleOwnerSendText = async (text: string, burn_after_seconds: number | null = null, reply_to_id: string | null = null, is_thread_reply = false) => {
@@ -1849,46 +1872,10 @@ export default function DashboardPage() {
     } catch {}
   };
 
-  const handleExportChat = () => {
-    if (!chatRoom || chatMessages.length === 0) {
-      toast('No messages to export', { icon: 'ℹ️' });
-      return;
-    }
-
-    let text = `# GhostVault Chat Export: Room ${chatRoom.token}\n`;
-    text += `Generated: ${new Date().toLocaleString()}\n\n---\n\n`;
-    
-    chatMessages.forEach((m: any) => {
-      const time = new Date(m.created_at).toLocaleString();
-      const sender = m.sender === 'owner' ? 'Owner' : 'Guest';
-      
-      text += `**${sender}** _(${time})_  \n`;
-      
-      if (m.type === 'text') {
-        // Replace single newlines with markdown line breaks (two spaces + newline)
-        const formattedContent = m.content.replace(/\n/g, '  \n');
-        text += `${formattedContent}\n\n`;
-      } else if (m.type === 'image' || m.type === 'file') {
-        text += `> 📎 [${m.type.toUpperCase()}] ${m.file_name}\n\n`;
-      } else if (m.type === 'burned') {
-        text += `> 🔥 [BURNED MESSAGE]\n\n`;
-      }
-    });
-
-    const blob = new Blob([text], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `GhostVault_Chat_${chatRoom.token}_${new Date().toISOString().split('T')[0]}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Chat exported successfully');
-  };
-
   const handleRoomUpdate = (updatedRoom: any) => {
     setRooms(prev => prev.map(r => r.token === updatedRoom.token ? { ...r, ...updatedRoom } : r));
     if (chatRoom?.token === updatedRoom.token) {
-      setChatRoom((prev: any) => ({ ...prev, ...updatedRoom }));
+      setChatRoom((prev: any) => prev?.token === updatedRoom.token ? { ...prev, ...updatedRoom } : prev);
     }
   };
 
@@ -1916,7 +1903,6 @@ export default function DashboardPage() {
 
   const changeVisibility = (room: any) => {
     const next = room.visibility === 'personal' ? 'shared' : 'personal';
-    setShowChatMenu(false);
     confirmAction({
       title: next === 'shared' ? 'Share the entire chat?' : 'Make this chat personal?',
       item: room.note || room.token,
@@ -2005,7 +1991,7 @@ export default function DashboardPage() {
             <button onClick={toggleTheme} className="flex items-center justify-center w-10 h-10 shrink-0 rounded-sm border border-borderBase bg-bgCard text-textSecondary hover:text-textPrimary hover:bg-bgHover transition-colors" title="Toggle Theme">
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button onClick={logout} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-ui font-bold rounded-sm border border-danger/30 text-danger hover:bg-danger hover:text-white transition-colors uppercase tracking-wider">
+            <button onClick={() => logout()} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-ui font-bold rounded-sm border border-danger/30 text-danger hover:bg-danger hover:text-white transition-colors uppercase tracking-wider">
               <LogOut size={14} /> Sign out
             </button>
           </div>
@@ -2038,7 +2024,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-3 mb-8">
+              <div className="grid grid-cols-3 min-[480px]:grid-cols-5 gap-3 mb-8">
                 <button onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} className={`flex flex-col items-center justify-center gap-3 p-3 rounded-2xl transition-colors ${activeTab === 'dashboard' ? 'bg-accent/10 text-accent' : 'bg-bgBase text-textSecondary hover:text-textPrimary border border-borderBase'}`}>
                   <Activity size={24} />
                   <span className="text-xs font-bold">Dash</span>
@@ -2063,25 +2049,11 @@ export default function DashboardPage() {
               </div>
 
 
-              {isFileSystemAccessSupported() && (
-                <div className="mb-4 flex flex-col gap-2">
-                  <div className="text-xs font-ui text-textGhost  text-center">Local Vault Directory</div>
-                  <button onClick={handleSetDownloadDir} className="flex items-center justify-center gap-2 py-2 rounded-xl border border-accent/30 bg-accent/5 text-accent hover:bg-accent/10 transition-colors text-sm font-bold w-full">
-                    <FolderLock size={16} /> {downloadDir ? `Vault: ${downloadDir.name}` : 'Set Save Folder'}
-                  </button>
-                  {downloadDir && (
-                    <button onClick={handleClearDownloadDir} className="text-xs text-textSecondary hover:text-danger font-ui transition-colors">
-                      Clear configured folder
-                    </button>
-                  )}
-                </div>
-              )}
-
               <div className="flex gap-3">
                 <button onClick={() => { toggleTheme(); setSidebarOpen(false); }} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl border border-borderBase bg-bgBase text-textSecondary hover:text-textPrimary transition-colors text-sm font-bold">
                   {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />} Theme
                 </button>
-                <button onClick={logout} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors text-sm font-bold">
+                <button onClick={() => logout()} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors text-sm font-bold">
                   <LogOut size={18} /> Sign out
                 </button>
               </div>
@@ -2129,7 +2101,7 @@ export default function DashboardPage() {
                 ].map(scope => (
                   <button key={scope.id} role="tab" aria-selected={chatScope === scope.id} onClick={() => setChatScope(scope.id)}>
                     <span>{scope.label}</span>
-                    <span className="count">{rooms.filter(r => (r.visibility || 'shared') === scope.id && isRoomValid(r)).length}</span>
+                    <span className="count">{roomsLoading || roomError ? '—' : rooms.filter(r => (r.visibility || 'shared') === scope.id && isRoomValid(r)).length}</span>
                   </button>
                 ))}
               </div>
@@ -2164,7 +2136,7 @@ export default function DashboardPage() {
                   </span>
                   {tunnelSearch && <span className="text-accent/60 lowercase italic">filtering...</span>}
                 </div>
-                {scopedRooms.filter(isRoomValid).length === 0 && (
+                {roomError ? loadError(roomError, 'conversations') : roomsLoading ? <p role="status">Loading conversations…</p> : scopedRooms.filter(isRoomValid).length === 0 && (
                   <div className="chat-list-empty">
                     <p>
                       {chatScope === 'personal'
@@ -2234,8 +2206,12 @@ export default function DashboardPage() {
             <div className={`flex-1 flex-col h-full bg-bgBase relative z-20 min-w-0 overflow-hidden ${!chatRoom ? 'hidden md:flex' : 'flex'}`}>
               {chatRoom ? (
                 <>
-                  <div className="p-4 border-b border-borderBase flex items-center justify-between bg-bgCard/80 backdrop-blur-md z-30">
-                    <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                    <ErrorBoundary title="Chat Stream Error" onReset={() => openChat(chatRoom)}>
+                      <ChatWindow
+                        key={chatRoom.token}
+                        roomTitle={chatRoom.note || (chatRoom.visibility === 'personal' ? 'Saved Notes' : chatRoom.token)}
+                        navigation={<>
                       <button className="md:hidden p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-md transition-colors" aria-label="Back to tunnels" onClick={closeChat}>
                         <ChevronLeft size={20} />
                       </button>
@@ -2245,144 +2221,23 @@ export default function DashboardPage() {
                         </button>
                       )}
 
-                      <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-                        <Terminal size={18} className="text-accent" />
-                      </div>
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-accent font-bold tracking-wider text-sm truncate">{chatRoom.note || chatRoom.token}</span>
-                          <span className={chatRoom.visibility === 'personal' ? 'audience-badge' : chatRoom.is_paused ? 'audience-badge audience-badge--paused' : 'audience-badge audience-badge--shared'}>
-                            {chatRoom.visibility === 'personal' ? '🔒 Saved Notes' : chatRoom.is_paused ? '⏸️ Paused' : '🌐 Live Tunnel'}
-                          </span>
-                          {chatRoom.visibility !== 'personal' && (isRoomValid(chatRoom) ? (
-                            chatRoom.is_paused ? (
-                              <span className="text-[11px] font-bold  text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-sm flex items-center gap-1 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                                PAUSED
-                              </span>
-                            ) : (
-                              <span className="text-[11px] font-bold  text-bgBase bg-accent px-1.5 py-0.5 rounded-sm flex items-center gap-1">
-                                <span className="w-1 h-1 rounded-full bg-bgBase animate-pulse" /> LIVE
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-[11px] font-bold  text-textGhost bg-bgCard border border-borderBase px-1.5 py-0.5 rounded-sm">
-                              Closed
-                            </span>
-                          ))}
-                        </div>
-                        {chatRoom.note ? (
-                          <span className="text-xs text-textSecondary font-ui truncate">{chatRoom.note}</span>
-                        ) : (
-                          <span className="text-xs text-textGhost font-ui truncate">Secure Connection established</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button className="p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-md transition-colors" onClick={handleExportChat} title="Export Chat Log">
-                        <Download size={18} />
-                      </button>
-                      <button className="p-2 text-accent hover:text-accent hover:bg-accent/10 rounded-md transition-colors" onClick={() => setShowBugModal(true)} title="Report a Bug">
-                        <Bug size={18} />
-                      </button>
-
-                      {/* Dropdown Menu */}
-                      <div className="relative" ref={chatMenuRef}>
-                        <button 
-                          onClick={() => setShowChatMenu(!showChatMenu)}
-                          className={`p-2 rounded-md transition-colors ${showChatMenu ? 'bg-bgHover text-textPrimary' : 'text-textSecondary hover:text-textPrimary hover:bg-bgHover'}`}
-                        >
-                          <MoreVertical size={18} />
-                        </button>
-                        
-                        <AnimatePresence>
-                          {showChatMenu && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 5, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                              transition={{ duration: 0.15 }}
-                              className="absolute right-0 top-full mt-2 w-48 bg-bgCard border border-borderBase rounded-md shadow-2xl overflow-hidden z-50 flex flex-col p-1"
-                            >
-                              {chatRoom.visibility !== 'personal' && chatRoom.visibility !== 'api' && <>
-                              <button
-                                onClick={() => { copyToClipboard(`${BASE_URL}/r/${chatRoom.token}`); setShowChatMenu(false); }}
-                                className="w-full text-left px-3 py-2 text-xs font-ui font-bold  text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
-                              >
-                                <Copy size={14} /> Copy Link
-                              </button>
-                              
-                              <button
-                                onClick={() => { setQrRoom({ token: chatRoom.token, expiresAt: chatRoom.expires_at, viewOnce: chatRoom.view_once }); setShowChatMenu(false); }}
-                                className="w-full text-left px-3 py-2 text-xs font-ui font-bold  text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
-                              >
-                                <QrCode size={14} /> View QR
-                              </button>
-                              </>}
-
-                              {chatRoom.visibility === 'api' && (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      setDocsRoom(chatRoom);
-                                      setShowChatMenu(false);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs font-ui font-bold text-accent hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
-                                  >
-                                    <Info size={14} /> How to Send Data
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const base = window.location.origin.replace(/:\d+$/, ':4000');
-                                      copyToClipboard(`${base}/api/ingest/${chatRoom.note || chatRoom.token}`, 'Webhook URL copied!');
-                                      setShowChatMenu(false);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs font-ui font-bold text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
-                                  >
-                                    <Zap size={14} /> Copy Ingest URL
-                                  </button>
-                                </>
-                              )}
-                              
-                              <button
-                                onClick={() => { setEditRoom(chatRoom); setShowChatMenu(false); }}
-                                className="w-full text-left px-3 py-2 text-xs font-ui font-bold  text-textSecondary hover:text-textPrimary hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors"
-                              >
-                                <Pencil size={14} /> {chatRoom.visibility === 'api' ? 'Project Settings' : 'Edit Room'}
-                              </button>
-
-                              {chatRoom.visibility !== 'personal' && chatRoom.visibility !== 'api' && isRoomValid(chatRoom) && (
-                                <button
-                                  onClick={() => { handleTogglePause(chatRoom.token, chatRoom.is_paused); setShowChatMenu(false); }}
-                                  className={`w-full text-left px-3 py-2 text-xs font-ui font-bold  hover:bg-bgHover rounded-sm flex items-center gap-2 transition-colors ${chatRoom.is_paused ? 'text-accent hover:text-accent' : 'text-amber-500 hover:text-amber-400'}`}
-                                >
-                                  {chatRoom.is_paused ? <Play size={14} /> : <Pause size={14} />}
-                                  {chatRoom.is_paused ? 'Resume' : 'Pause'}
-                                </button>
-                              )}
-
-                              {chatRoom.visibility !== 'api' && (
-                                <button className="btn btn-secondary" onClick={() => changeVisibility(chatRoom)}>{chatRoom.visibility === 'personal' ? 'Share chat…' : 'Make personal…'}</button>
-                              )}
-                              <div className="h-px bg-borderBase my-1 mx-2" />
-
-                              <button
-                                onClick={() => { handleRevoke(chatRoom.token); setShowChatMenu(false); }}
-                                className="w-full text-left px-3 py-2 text-xs font-ui font-bold  text-danger hover:bg-danger/10 rounded-sm flex items-center gap-2 transition-colors"
-                              >
-                                <X size={14} /> {chatRoom.visibility === 'api' ? 'Deactivate feed' : 'Revoke access'}
-                              </button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      <button className="hidden md:flex p-2 text-textSecondary hover:text-textPrimary hover:bg-bgHover border border-transparent hover:border-borderBase rounded-md transition-colors" aria-label="Back to tunnels" onClick={closeChat}>
-                        <X size={18} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className={chatRoom.visibility === 'personal' ? 'access-notice' : chatRoom.visibility === 'api' ? 'access-notice access-notice--api' : chatRoom.is_paused ? 'access-notice access-notice--paused' : 'access-notice access-notice--shared'}>
-                    {chatRoom.visibility === 'api' ? (
+                        </>}
+                        roomActions={<>
+                          <button onClick={() => setShowBugModal(true)}>Report a bug</button>
+                          {chatRoom.visibility !== 'personal' && chatRoom.visibility !== 'api' && <>
+                            <button onClick={() => copyToClipboard(BASE_URL + '/r/' + chatRoom.token)}>Copy invite link</button>
+                            <button onClick={() => setQrRoom({token:chatRoom.token, expiresAt:chatRoom.expires_at, viewOnce:chatRoom.view_once})}>View QR code</button>
+                          </>}
+                          <button onClick={() => setEditRoom(chatRoom)}>{chatRoom.visibility === 'api' ? 'Project settings' : 'Room settings'}</button>
+                          {chatRoom.visibility !== 'api' && <>
+                            {chatRoom.visibility !== 'personal' && isRoomValid(chatRoom) &&
+                              <button onClick={() => handleTogglePause(chatRoom.token, chatRoom.is_paused)}>{chatRoom.is_paused ? 'Resume guest access' : 'Pause guest access'}</button>}
+                            <button onClick={() => changeVisibility(chatRoom)}>{chatRoom.visibility === 'personal' ? 'Share chat' : 'Make personal'}</button>
+                          </>}
+                          <button onClick={() => handleRevoke(chatRoom.token)}>{chatRoom.visibility === 'api' ? 'Deactivate feed' : 'Revoke access'}</button>
+                          <button onClick={closeChat}>Close conversation</button>
+                        </>}
+                        feedDetails={chatRoom.visibility === 'api' && <div className="access-notice access-notice--api">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full py-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold flex items-center gap-1 text-accent text-xs">
@@ -2440,35 +2295,7 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       </div>
-                    ) : chatRoom.visibility === 'personal' ? (
-                      <>
-                        <span><Lock size={13} className="shrink-0" /> Personal Saved Notes · Only your account can view these notes</span>
-                        <div className="actions">
-                          <button onClick={() => changeVisibility(chatRoom)}>Make Public Tunnel…</button>
-                        </div>
-                      </>
-                    ) : chatRoom.is_paused ? (
-                      <>
-                        <span><Pause size={13} className="shrink-0" /> Shared Tunnel (Paused) · Guest access blocked. Messages remain private until resumed</span>
-                        <div className="actions">
-                          <button onClick={() => handleTogglePause(chatRoom.token, true)} className="flex items-center gap-1"><Play size={11} /> Resume Live</button>
-                          <button onClick={() => changeVisibility(chatRoom)}>Make Personal</button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <span><Globe size={13} className="shrink-0" /> Public Live Tunnel · Anyone with the 4-char link can view & chat</span>
-                        <div className="actions">
-                          <button onClick={() => handleTogglePause(chatRoom.token, false)} className="flex items-center gap-1"><Pause size={11} /> Pause Access</button>
-                          <button onClick={() => changeVisibility(chatRoom)}>Make Personal</button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                    <ErrorBoundary title="Chat Stream Error" onReset={() => openChat(chatRoom)}>
-                      <ChatWindow
-                        key={chatRoom.token}
+                        </div>}
                         socket={socket} token={chatRoom.token} updateMessages={setChatMessages}
                         paused={chatRoom.is_paused} slug={chatRoom.note || chatRoom.token} invite={BASE_URL + "/r/" + chatRoom.token}
                         messages={chatMessages}
@@ -2690,7 +2517,7 @@ export default function DashboardPage() {
                       <span className="text-[10px] text-textGhost group-hover:text-accent font-ui transition-colors">→</span>
                     </div>
                     <span className="font-ui text-2xl font-bold text-accent">
-                      {rooms.filter(r => (r.visibility || 'shared') === 'shared' && isRoomValid(r)).length}
+                      {roomsLoading || roomError ? '—' : rooms.filter(r => (r.visibility || 'shared') === 'shared' && isRoomValid(r)).length}
                     </span>
                     <span className="text-[10px] text-textGhost truncate font-ui mt-0.5">Live guest links</span>
                   </button>
@@ -2713,7 +2540,7 @@ export default function DashboardPage() {
                       <span className="text-[10px] text-textGhost group-hover:text-sky-400 font-ui transition-colors">→</span>
                     </div>
                     <span className="font-ui text-2xl font-bold text-sky-400">
-                      {rooms.filter(r => r.visibility === 'personal' && isRoomValid(r)).length}
+                      {roomsLoading || roomError ? '—' : rooms.filter(r => r.visibility === 'personal' && isRoomValid(r)).length}
                     </span>
                     <span className="text-[10px] text-textGhost truncate font-ui mt-0.5">Encrypted scratchpads</span>
                   </button>
@@ -2736,7 +2563,7 @@ export default function DashboardPage() {
                       <span className="text-[10px] text-textGhost group-hover:text-accent font-ui transition-colors">→</span>
                     </div>
                     <span className="font-ui text-2xl font-bold text-accent">
-                      {rooms.filter(r => r.visibility === 'api' && isRoomValid(r)).length}
+                      {roomsLoading || roomError ? '—' : rooms.filter(r => r.visibility === 'api' && isRoomValid(r)).length}
                     </span>
                     <span className="text-[10px] text-textGhost truncate font-ui mt-0.5">Webhook inboxes</span>
                   </button>
@@ -2794,7 +2621,7 @@ export default function DashboardPage() {
                       <h2 className="font-ui text-sm font-bold  text-textPrimary flex items-center gap-2">
                         <Database size={16} className="text-textSecondary" /> Recent files
                       </h2>
-                      <span className="text-xs font-ui text-textGhost border border-borderBase bg-bgCard px-2 py-0.5 rounded-sm">{totalUploads} ITEMS</span>
+                      <span className="text-xs font-ui text-textGhost border border-borderBase bg-bgCard px-2 py-0.5 rounded-sm">{loading || fileError ? '—' : totalUploads} ITEMS</span>
                     </div>
 
                     <div className="p-4 flex-1">
@@ -2802,7 +2629,7 @@ export default function DashboardPage() {
                         ? <div className="space-y-2">
                           {[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-bgBase border border-borderBase rounded-sm animate-pulse" />)}
                         </div>
-                        : uploads.length === 0
+                        : fileError ? loadError(fileError, 'files') : uploads.length === 0
                           ? <div className="flex flex-col items-center justify-center h-32 border border-dashed border-borderBase rounded-sm text-textGhost">
                             <span className="font-ui text-xs ">NO_DATA_FOUND</span>
                           </div>
@@ -2854,7 +2681,7 @@ export default function DashboardPage() {
                     <div className="p-4">
                       <div className="text-xs font-ui font-bold text-textGhost  mb-3 border-b border-borderBase pb-2">Active Connections</div>
 
-                      {rooms.filter(isRoomValid).length === 0
+                      {roomError ? loadError(roomError, 'conversations') : roomsLoading ? <p role="status">Loading conversations…</p> : rooms.filter(isRoomValid).length === 0
                         ? <div className="flex flex-col items-center justify-center py-6 border border-dashed border-borderBase rounded-sm text-textGhost mb-6">
                           <span className="font-ui text-xs ">No active tunnels. Create one to start sharing.</span>
                         </div>

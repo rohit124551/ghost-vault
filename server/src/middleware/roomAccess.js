@@ -11,13 +11,6 @@ async function roomAccess(req, res, next) {
     req.owner = await resolveOwner(supabase, bearer);
     req.room = room;
     if (!req.owner && !guestsCanAccess(room)) return res.status(404).json({ error: 'Chat unavailable' });
-    // A token for one shared chat must never grant access to another chat's message IDs.
-    const id = req.path.split('/').filter(Boolean)[0];
-    if (id && id !== 'text' && id !== 'file' && !(id === 'receipts' && req.path === '/receipts' && req.method === 'POST')) {
-      const { data: message, error: messageError } = await supabase.from('messages')
-        .select('id').eq('id', id).eq('room_id', room.id).single();
-      if (messageError || !message) return res.status(404).json({ error: 'Message not found' });
-    }
     next();
   } catch (error) { next(error); }
 }

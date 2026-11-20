@@ -81,8 +81,8 @@ export default function AssetViewPage() {
 
   return (
     <div className="min-h-screen bg-bgBase flex flex-col p-4 md:p-8">
-      <header className="flex items-center justify-between mb-8 max-w-5xl mx-auto w-full">
-        <GhostLogo />
+      <header className="flex flex-wrap gap-3 items-center justify-between mb-8 max-w-5xl mx-auto w-full">
+        <GhostLogo className="h-8 w-8 shrink-0" />
         
         <div className="flex items-center gap-3">
           <a 
@@ -116,7 +116,7 @@ export default function AssetViewPage() {
               <div className="w-3 h-3 rounded-full bg-amber-500/80" />
               <div className="w-3 h-3 rounded-full bg-green-500/80" />
             </div>
-            <div className="text-xs font-mono text-textSecondary px-2 py-1 bg-black/20 rounded">
+            <div title={upload?.file_name} className="min-w-0 truncate text-xs font-mono text-textSecondary px-2 py-1 bg-black/20 rounded">
               {upload?.file_name || 'snippet.txt'}
             </div>
           </div>

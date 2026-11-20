@@ -8,6 +8,8 @@ import { CheckCheck, NotebookPen, Users, Terminal, Send, Paperclip, Download, X,
 import MessageText from './MessageText';
 import ThreadPanel from './ThreadPanel';
 import { motion, AnimatePresence } from 'framer-motion';
+import {RequestFileDialog, TransferCard} from './TransferCard';
+import {guestAttachmentBytes, cloudAttachmentBytes, uploadTemporaryFile} from '../lib/transfers';
 import toast from 'react-hot-toast';
 import FullScreenImageViewer from './FullScreenImageViewer';
 import { copyToClipboard } from '../utils/clipboard';
@@ -279,7 +281,7 @@ function ApiEventCard({ event, createdAt }) {
 
 /* ── Message Bubble ── */
 function MessageBubble({ 
-  msg, token, onThread, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages,
+  msg, token, renderTransfer, onThread, notebook, myRole, onDelete, canDelete, onReact, onView, onBurn, onPin, guestId, onReply, messages,
   isClusterStart = true, isClusterEnd = true,
   isSelectionMode = false, onToggleSelect
 }) {
@@ -480,6 +482,7 @@ function MessageBubble({
 
   return (
     <div 
+      data-receipt-id={!isMe && !isApiMessage && !msg.seen_at && !msg.burn_after_seconds ? msg.id : undefined}
       id={`msg-${msg.id}`} 
       className={`bubble-row ${isMe ? 'bubble-row--right' : 'bubble-row--left'} ${rowClusterClass}`}
       onClick={(e) => {
@@ -677,7 +680,7 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
         ) : (
           <>
             {/* ── Text ── */}
-            {msg.type === 'text' && (
+            {msg.transfer ? renderTransfer(msg) : msg.type === 'text' && (
               apiEvent ? (
                 <ApiEventCard event={apiEvent} createdAt={msg.created_at} />
               ) : (
@@ -798,7 +801,7 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
           </>
         )}
 
-        {!apiEvent && <span className="bubble-time-float">{formatTime(msg.created_at)} {isMe && <span aria-label={msg.viewed_at || msg.seen_at ? 'Seen' : msg.delivered_at ? 'Delivered' : 'Sent'} title={msg.viewed_at || msg.seen_at ? 'Seen' : msg.delivered_at ? 'Delivered' : 'Sent'}>
+        {!apiEvent && <span className="bubble-time-float">{formatTime(msg.created_at)} {isMe && !notebook && <span aria-label={msg.viewed_at || msg.seen_at ? 'Seen' : msg.delivered_at ? 'Delivered' : 'Sent'} title={msg.viewed_at || msg.seen_at ? 'Seen' : msg.delivered_at ? 'Delivered' : 'Sent'}>
           {msg.viewed_at || msg.seen_at ? <CheckCheck size={14} color="#a5f3fc"/> : msg.delivered_at ? <CheckCheck size={14}/> : <Check size={13}/>}</span>}</span>}
 
         {/* ── Reactions ── */}
@@ -861,11 +864,26 @@ ${isBlurred ? 'bubble--blurred' : ''} ${isBurned ? 'bubble--tombstone' : ''}`}
    - myRole             'owner' | 'guest'
    - disabled           boolean (if room is expired/revoked)
    ══════════════════════════════════════════════ */
+function AttachmentThumbnail({file}) {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return src && <img className="attachment-thumbnail" src={src} alt={'Preview of ' + file.name}/>;
+}
+
 export default function ChatWindow({
   messages, onSendText, onSendFile,
   onDelete, onBatchDelete, canDelete, onReact, onView, onBurn, onPin, loading,
-  myRole = 'owner', disabled = false, audience, socket, token, updateMessages, paused, slug, invite
+  myRole = 'owner', disabled = false, audience, socket, token, updateMessages, paused, slug, invite, roomTitle, navigation, roomActions, feedDetails
 }) {
+  const [requestingFile,setRequestingFile] = useState(false);
+  function mergeTransfer(row) {
+    updateMessages(prev => prev.some(m => m.id === row.id) ? prev.map(m => m.id === row.id ? row : m) : [...prev,row]);
+  }
+  const renderTransfer = message => <TransferCard message={message} token={token} myRole={myRole} onUpdate={mergeTransfer}/>;
   const [panel, setPanel] = useState('');
   const [query, setQuery] = useState('');
   const [threadId, setThreadId] = useState(null);
@@ -874,18 +892,22 @@ export default function ChatWindow({
   const [pinIndex, setPinIndex] = useState(0);
   const composer = useRef(null);
   const chatRoot = useRef(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const shared = audience === 'shared' && !disabled && !paused;
-  const {peerTyping, input, apiClient} = useChatActivity({socket, token, myRole, messages, updateMessages, shared, loading});
+  const {peerTyping, input, apiClient} = useChatActivity({socket, token, myRole, messages, updateMessages, shared, loading, chatRoot, threadId, category:selectedCategory});
   const inviteUrl = invite || window.location.origin + '/r/' + token;
   const curl = 'curl -X POST "' + apiClient.defaults.baseURL + '/api/ingest/' + encodeURIComponent(slug || token) + '" -H "Content-Type: application/json" -d \'{"title":"First event"}\'';
   const peerName = myRole === 'owner' ? 'Guest' : 'Owner';
   const [text, setText] = useState('');
   const [timerDuration, setTimerDuration] = useState(null); // null = off
+  const [moreTools, setMoreTools] = useState(false);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [customTimerInput, setCustomTimerInput] = useState('');
-  const [sending, setSending] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [filePreviews, setFilePreviews] = useState([]); // Array of { file, name }
-  const [uploadProgress, setUploadProgress] = useState(null); // number 0-100 or null
+  const [outbox, setOutbox] = useState([]);
+  const sendQueue = useRef(Promise.resolve());
+  const nextSendId = useRef(0);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -923,7 +945,7 @@ export default function ChatWindow({
   }, []);
   const drafts = useRef(new Map());
   function changeThread(next) {
-    if (sending || isRecording) return false;
+    if (savingEdit || isRecording) return false;
     if (next !== threadId) {
       drafts.current.set(threadId, {text, filePreviews, replyingTo, timerDuration, voiceNotePreview, editing});
       const draft = drafts.current.get(next);
@@ -1010,7 +1032,7 @@ export default function ChatWindow({
       }
       if (e.key === 'Escape') {
         if (threadId) { changeThread(null); return; }
-        setReplyingTo(null); setShowTimerPicker(false); setPanel('');
+        setReplyingTo(null); setMoreTools(false); setShowTimerPicker(false); setPanel('');
         if (editing) {setEditing(null); setText('');}
         setSelectedIds([]);
       }
@@ -1025,7 +1047,7 @@ export default function ChatWindow({
   const [voiceNotePreview, setVoiceNotePreview] = useState(null);
 
   // Ingestion Category Filtering
-  const [selectedCategory, setSelectedCategory] = useState('all');
+
 
   // Compute if thread has API messages & count events per category
   const { hasApiMessages, categoryStats, customCategoryStats } = useMemo(() => {
@@ -1100,7 +1122,7 @@ export default function ChatWindow({
 
   // Voice Note Handlers
   const startRecording = async () => {
-    if (disabled || sending) return;
+    if (disabled || savingEdit) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -1167,68 +1189,77 @@ export default function ChatWindow({
   };
 
   const handleSend = async () => {
-    if (sending || disabled) return;
+    if (savingEdit || disabled) return;
 
     input(false);
     if (editing) {
       if (!text.trim()) return;
-      setSending(true);
+      setSavingEdit(true);
       try {
         const {data} = await apiClient.patch('/api/rooms/' + token + '/messages/' + editing + '/text', {content:text, key:sessionStorage.getItem('edit:' + editing)});
         updateMessages(prev => prev.map(m => m.id === editing ? data : m));
         setText(''); setEditing(null); setSent(true);
-      } catch { toast.error('Could not save edit'); } finally {setSending(false);}
+      } catch { toast.error('Could not save edit'); } finally {setSavingEdit(false);}
       return;
     }
-    if (voiceNotePreview) {
-      setSending(true);
-      try {
-        setUploadProgress(0);
-        await onSendFile(voiceNotePreview.file, timerDuration, threadId || replyingTo?.id, (e) => {
-          if (e.total) {
-            setUploadProgress(Math.round((e.loaded * 100) / e.total));
-          }
-        }, !!threadId);
-        setUploadProgress(null);
-        URL.revokeObjectURL(voiceNotePreview.url);
-        setVoiceNotePreview(null);
-        setTimerDuration(null);
-        setReplyingTo(null);
-        setSent(true);
-      } catch {toast.error('Could not send voice note');} finally {setSending(false); setUploadProgress(null);}
-      return;
+    const attachments = voiceNotePreview ? [voiceNotePreview.file] : filePreviews.map(p => p.file);
+    if (myRole !== 'owner' && attachments.some(file => file.size > guestAttachmentBytes)) {
+      return toast.error('Files over 25 MiB need an upload request from the owner.');
     }
-
-    if (!text.trim() && filePreviews.length === 0) return;
-    setSending(true);
-
-    try {
-      if (filePreviews.length > 0) {
-        for (const p of filePreviews) {
-          setUploadProgress(0);
-          await onSendFile(p.file, timerDuration, threadId || replyingTo?.id, (e) => {
-            if (e.total) {
-              setUploadProgress(Math.round((e.loaded * 100) / e.total));
-            }
-          }, !!threadId);
-          setUploadProgress(null);
-          setFilePreviews(prev => prev.slice(1));
-        }
-      }
-      if (text.trim()) {
-        await onSendText(text.trim(), timerDuration, threadId || replyingTo?.id, !!threadId);
-        setText('');
-      }
-      setSent(true);
-      setTimerDuration(null);
-      setReplyingTo(null);
-    } catch (err) {
-      toast.error(err.response?.status === 413 ? 'Attachment too large' : 'Message could not be sent. Your draft is ready to retry.');
-    } finally {
-      setUploadProgress(null);
-      setSending(false);
+    if (timerDuration && attachments.some(file => file.size > cloudAttachmentBytes)) {
+      return toast.error('Temporary files expire after 24 hours. Turn off the read timer to send.');
     }
+    const items = attachments.map(file => ({file, label:file === voiceNotePreview?.file ? 'Voice note' : file.name}));
+    if (!voiceNotePreview && text.trim()) items.push({label:text.trim()});
+    if (!items.length) return;
+
+    const batch = items.map(item => ({
+      ...item, id:++nextSendId.current, threadId, timerDuration,
+      replyId:threadId || replyingTo?.id, failed:false
+    }));
+    setOutbox(prev => [...prev, ...batch]);
+    if (voiceNotePreview) URL.revokeObjectURL(voiceNotePreview.url);
+    else { setText(''); setFilePreviews([]); }
+    setVoiceNotePreview(null);
+    setTimerDuration(null);
+    setReplyingTo(null);
+    batch.forEach(queueSend);
+    composer.current?.focus();
   };
+
+  function queueSend(item) {
+    const patch = changes => setOutbox(prev => prev.map(p => p.id === item.id ? {...p, ...changes} : p));
+    patch({failed:false, progress:null});
+    sendQueue.current = sendQueue.current.then(async () => {
+      try {
+        if (item.file?.size > cloudAttachmentBytes) {
+          const row = await uploadTemporaryFile(apiClient,token,item.file,{replyId:item.replyId,thread:!!item.threadId},
+            event => patch({progress:Math.round(100 * event.loaded / event.total)}));
+          mergeTransfer(row);
+        } else if (item.file) {
+          await onSendFile(item.file, item.timerDuration, item.replyId, event => {
+            if (event.total) patch({progress:Math.round(100 * event.loaded / event.total)});
+          }, !!item.threadId);
+        } else {
+          await onSendText(item.label, item.timerDuration, item.replyId, !!item.threadId);
+        }
+        setOutbox(prev => prev.filter(p => p.id !== item.id));
+        setSent(true);
+      } catch (error) {
+        patch({failed:true, error:error.response?.data?.error || (error.response?.status === 413 ? 'Attachment too large' : 'Send unconfirmed')});
+      }
+    });
+  }
+
+  function pendingBubbles(thread) {
+    return outbox.filter(item => item.threadId === thread).map(item =>
+      <div key={item.id} className="pending-bubble">
+        <span>{item.label}</span>
+        <small role="status">{item.failed ? item.error : item.progress != null ? 'Uploading ' + item.progress + '%' : 'Pending'}</small>
+        {item.failed && !disabled && <button onClick={() => queueSend(item)}>Retry</button>}
+      </div>
+    );
+  }
 
   const handleKey = (e) => {
     if (e.nativeEvent.isComposing) return;
@@ -1254,7 +1285,7 @@ export default function ChatWindow({
         return;
       }
       e.preventDefault();
-      if ((filePreviews.length > 0 || text.trim()) && !sending) {
+      if ((filePreviews.length > 0 || text.trim()) && !savingEdit) {
         handleSend();
       }
     }
@@ -1325,6 +1356,7 @@ export default function ChatWindow({
   return (
     <div
       ref={chatRoot}
+      data-audience={audience}
       className={`chat-window ${isDragging ? 'chat-window--dragging' : ''}`}
       style={{ position: 'relative' }}
       onDragOver={handleDragOver}
@@ -1382,7 +1414,10 @@ export default function ChatWindow({
         </div>
       )}
 
-      <ChatHeader panel={panel} setPanel={setPanel} query={query} setQuery={setQuery} messages={messages || []} jump={jump}/>
+      {requestingFile && <RequestFileDialog token={token} onClose={() => setRequestingFile(false)} onCreated={mergeTransfer}/>}
+      <ChatHeader panel={panel} setPanel={setPanel} query={query} setQuery={setQuery} messages={messages || []} jump={jump}
+        title={roomTitle || (audience === 'personal' ? 'Saved Notes' : token)} audience={audience}
+        paused={paused} disabled={disabled} navigation={navigation} roomActions={<>{myRole === 'owner' && shared && <button onClick={() => setRequestingFile(true)}>Request a file</button>}{roomActions}</>} feedDetails={feedDetails}/>
       {isDragging && (
         <div className="chat-drag-overlay">
           <div className="chat-drag-content">
@@ -1506,7 +1541,7 @@ export default function ChatWindow({
 
             {loading ? (
               <div className="chat-skeleton" role="status" aria-label="Loading messages">{[38,57,29,46].map(w => <i key={w} style={{width:w+'%'}}/>)}</div>
-            ) : displayedMessages.length === 0 ? (
+            ) : displayedMessages.length === 0 && !outbox.some(item => !item.threadId) ? (
               <div className="chat-empty">
                 {audience === 'personal' ? <NotebookPen size={38}/> : audience === 'api' ? <Terminal size={38}/> : <Users size={38}/>}
                 <h3>{selectedCategory !== 'all' ? 'No matching events' : audience === 'personal' ? 'Your private notebook' : audience === 'api' ? 'Waiting for your first event' : 'Start a conversation'}</h3>
@@ -1584,7 +1619,7 @@ export default function ChatWindow({
                         </div>
                       )}
                       <MessageBubble
-                        msg={msg} token={token} onThread={m => changeThread(m.is_thread_reply ? m.reply_to_id : m.id)}
+                        msg={msg} token={token} renderTransfer={renderTransfer} notebook={audience === "personal"} onThread={m => changeThread(m.is_thread_reply ? m.reply_to_id : m.id)}
                         myRole={myRole}
                         onDelete={onDelete}
                         canDelete={canDelete}
@@ -1608,9 +1643,7 @@ export default function ChatWindow({
                 );
               })}</div>)
             )}
-            {sending && !editing && <div className="pending-bubble" role="status">
-              <span>{voiceNotePreview ? 'Voice note' : filePreviews[0]?.name || text.trim()}</span><Clock size={13} aria-label="Sending"/>
-            </div>}
+            {pendingBubbles(null)}
             </div>
           </div>
 
@@ -1632,8 +1665,8 @@ export default function ChatWindow({
             )}
           </AnimatePresence>
         </div>
-        {threadId && <ThreadPanel key={threadId} parent={messages.find(m => m.id === threadId)}
-          replies={messages.filter(m => m.reply_to_id === threadId)} myRole={myRole}
+        {threadId && <ThreadPanel renderTransfer={renderTransfer} pending={pendingBubbles(threadId)} key={threadId} parent={messages.find(m => m.id === threadId)}
+          replies={messages.filter(m => m.is_thread_reply && m.reply_to_id === threadId)} myRole={myRole}
           onClose={() => changeThread(null)} renderTimed={m => <MessageBubble msg={m} token={token}
             myRole={myRole} guestId={guestId} onBurn={onBurn} onReact={onReact} onView={onView}/>}
         />}
@@ -1643,20 +1676,11 @@ export default function ChatWindow({
               <div className="chat-previews-list">
                 {filePreviews.map((p, idx) => (
                   <div key={idx} className="chat-file-chip relative overflow-hidden flex items-center pr-2">
-                    <File size={13} className="z-10 relative shrink-0" />
-                    <span className="chat-file-chip-name z-10 relative truncate flex-1">{p.name}</span>
-                    {sending && uploadProgress !== null && idx === 0 ? (
-                      <span className="z-10 relative text-[10px] font-bold text-cyan-400 bg-[#0f172a] px-1.5 py-0.5 rounded shadow-sm shrink-0 ml-2">
-                        {uploadProgress}%
-                      </span>
-                    ) : (
-                      <button className="chat-file-chip-remove z-10 relative shrink-0 ml-2" onClick={() => removeFile(idx)} disabled={sending}>
-                        <X size={11} />
-                      </button>
-                    )}
-                    {sending && uploadProgress !== null && idx === 0 && (
-                      <div className="absolute left-0 top-0 bottom-0 bg-cyan-500/20 z-0 pointer-events-none" style={{ width: `${uploadProgress}%`, transition: 'width 0.2s' }}></div>
-                    )}
+                    {p.file.type.startsWith("image/") ? <AttachmentThumbnail file={p.file}/> : <File size={13} className="z-10 relative shrink-0" />}
+                    <span className="chat-file-chip-name z-10 relative truncate flex-1">{p.name}{p.file.size > cloudAttachmentBytes && <small className="block">Temporary · 24 hours</small>}</span>
+                    <button className="chat-file-chip-remove z-10 relative shrink-0 ml-2" onClick={() => removeFile(idx)} aria-label={'Remove ' + p.name}>
+                      <X size={11}/>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1694,13 +1718,21 @@ export default function ChatWindow({
               {shared && peerTyping && <div className="typing-pill" role="status"><i/> {peerName} is typing…</div>}
               <div className={'chat-input-wrapper z-20' + (sent ? ' send-confirmed' : '')}>
                 <button
-                  className="chat-attach"
+                  className="chat-attach desktop-attach"
                   onClick={() => fileInputRef.current?.click()}
                   title="Attach file"
-                  disabled={sending || !!editing}
+                  disabled={savingEdit || !!editing}
                 >
                   <Paperclip size={16} />
                 </button>
+                <div className="mobile-composer-tools" onBlur={e => {if (!e.currentTarget.contains(e.relatedTarget)) setMoreTools(false);}}>
+                  <button aria-label="More composer options" aria-expanded={moreTools} disabled={savingEdit || !!editing}
+                    onClick={() => {setMoreTools(!moreTools);setShowTimerPicker(false);}}>+</button>
+                  {moreTools && <div className="composer-options">
+                    <button onClick={() => {setMoreTools(false);fileInputRef.current?.click();}}>Attach file</button>
+                    <button onClick={() => {setMoreTools(false);setShowTimerPicker(true);}}>Disappearing message timer</button>
+                  </div>}
+                </div>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -1716,7 +1748,7 @@ export default function ChatWindow({
                   onKeyDown={handleKey}
                   onPaste={handlePaste}
                   rows={1}
-                  disabled={sending || isRecording || voiceNotePreview}
+                  disabled={savingEdit || isRecording || voiceNotePreview}
                   style={{ display: (isRecording || voiceNotePreview) ? 'none' : 'block' }}
                 />
                 {isRecording && (
@@ -1743,7 +1775,7 @@ export default function ChatWindow({
                     className={`chat-timer-toggle ${timerDuration ? 'chat-timer-toggle--active' : ''}`}
                     onClick={() => setShowTimerPicker(!showTimerPicker)}
                     title="Self-Destruct Timer"
-                    disabled={sending || !!editing}
+                    disabled={savingEdit || !!editing}
                   >
                     <Timer size={16} />
                     {timerDuration && (
@@ -1802,7 +1834,7 @@ export default function ChatWindow({
                   <button
                     className="chat-send chat-record"
                     onClick={startRecording}
-                    disabled={sending}
+                    disabled={savingEdit}
                     title="Record Voice Note"
                   >
                     <Mic size={16} />
@@ -1811,14 +1843,14 @@ export default function ChatWindow({
                   <button
                     className={'chat-send ' + (text.trim() || filePreviews.length || voiceNotePreview ? 'chat-send--active' : '')}
                     onClick={handleSend}
-                    disabled={sending || isRecording || !(text.trim() || filePreviews.length || voiceNotePreview)}
+                    disabled={savingEdit || isRecording || !(text.trim() || filePreviews.length || voiceNotePreview)}
                     title={editing ? "Save edit" : "Send"}
                   >
                     <AnimatePresence initial={false} mode="wait">
-                      <motion.span key={sending ? 'pending' : sent ? 'sent' : 'ready'}
+                      <motion.span key={savingEdit ? 'pending' : sent ? 'sent' : 'ready'}
                         initial={{opacity:0,scale:.8}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.85}}
                         transition={{duration:.09}}>
-                        {sending ? <Clock size={15}/> : sent ? <Check size={16}/> : <Send size={16}/>}
+                        {savingEdit ? <Clock size={15}/> : sent ? <Check size={16}/> : <Send size={16}/>}
                       </motion.span>
                     </AnimatePresence>
                   </button>

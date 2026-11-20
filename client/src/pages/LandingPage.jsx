@@ -76,7 +76,7 @@ export default function LandingPage() {
             </Link>
           )}
           {/* Mobile theme toggle */}
-          <button onClick={toggleTheme} className="md:hidden text-textGhost hover:text-textPrimary transition-colors flex-shrink-0" title="Toggle Theme">
+          <button onClick={toggleTheme} className="md:hidden grid place-items-center w-11 h-11 text-textGhost hover:text-textPrimary transition-colors flex-shrink-0" title="Toggle Theme">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
@@ -87,15 +87,15 @@ export default function LandingPage() {
         <div className="max-w-4xl w-full text-center mb-16">
           
           {/* Cyber Terminal Connection Banner */}
-          <div className="inline-flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-bgHover/50 border border-borderActive text-[10px] sm:text-xs md:text-sm font-mono text-cyan-400 mb-8 shadow-sm whitespace-nowrap max-w-[90vw]">
+          <div className="inline-flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-bgHover/50 border border-borderActive text-[10px] sm:text-xs md:text-sm font-mono text-cyan-400 mb-8 shadow-sm max-w-full flex-wrap justify-center">
             <Terminal size={14} className="text-textSecondary flex-shrink-0" />
             <span className="text-textSecondary hidden sm:inline">SECURE_LINK_ESTABLISHED:</span>
             <span className="text-textSecondary sm:hidden">LINK_ESTABLISHED:</span>
-            <span className="font-bold tracking-wider sm:tracking-widest flex-shrink-0">{clientIp}</span>
+            <span className="font-bold tracking-wider sm:tracking-widest break-all min-w-0">{clientIp}</span>
             <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-accent animate-pulse ml-1 md:ml-2 shadow-[0_0_8px_rgba(16,185,129,0.8)] flex-shrink-0"></div>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight mb-6 text-textPrimary h-16 md:h-20">
+          <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight mb-6 text-textPrimary min-h-16 md:min-h-20">
             {typedText.length > 14 ? "Paste. Share. " : typedText}
             {typedText.length > 14 && (
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-accent">
@@ -104,7 +104,7 @@ export default function LandingPage() {
             )}
             <span className="inline-block w-3 md:w-5 h-8 md:h-12 bg-accent ml-1 animate-pulse align-middle"></span>
           </h1>
-          <p className="text-lg md:text-xl text-textSecondary font-mono max-w-2xl mx-auto mb-10">
+          <p className="text-lg md:text-xl text-textSecondary font-ui max-w-2xl mx-auto mb-10">
             Your personal screenshot vault and temporary file sharing terminal. Designed for maximum speed, security, and anonymity with secure chats and real-time tunnels.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -146,7 +146,7 @@ export default function LandingPage() {
             <div key={i} className="group p-6 bg-bgCard border border-borderBase rounded-sm transition-all duration-300 hover:border-borderActive hover:bg-bgHover hover:-translate-y-1 hover:shadow-xl hover:shadow-black/20">
               <div className="mb-4">{f.icon}</div>
               <h3 className="font-display font-bold text-lg mb-2 text-textPrimary">{f.title}</h3>
-              <p className="text-textSecondary text-sm font-mono leading-relaxed">{f.desc}</p>
+              <p className="text-textSecondary text-sm font-ui leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -160,13 +160,13 @@ export default function LandingPage() {
             {/* Decorative background element */}
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
             
-            <p className="text-textSecondary font-mono text-sm md:text-base leading-relaxed mb-6 relative z-10">
+            <p className="text-textSecondary font-ui text-sm md:text-base leading-relaxed mb-6 relative z-10">
               I built GhostVault to solve a very real, everyday problem: sharing files in class was a nightmare. WhatsApp was way too laggy to open quickly due to endless bulk groups, and Telegram was constantly blocked by my university's strict network protocols.
             </p>
-            <p className="text-textSecondary font-mono text-sm md:text-base leading-relaxed mb-6 relative z-10">
+            <p className="text-textSecondary font-ui text-sm md:text-base leading-relaxed mb-6 relative z-10">
               I needed something lightning-fast and unblocked. Now, I can just drop a file, generate a quick "spell" (link), and share it instantly with classmates. Plus, it gives me a secure, zero-friction way for others to drop files privately into my vault without needing an account.
             </p>
-            <p className="text-textSecondary font-mono text-sm md:text-base leading-relaxed relative z-10">
+            <p className="text-textSecondary font-ui text-sm md:text-base leading-relaxed relative z-10">
               What started as a <strong className="text-cyan-400 font-bold">personal passion project</strong> to beat university firewalls has evolved into a secure, ephemeral terminal for anyone who values speed, minimalism, and privacy.
             </p>
             

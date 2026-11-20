@@ -114,7 +114,7 @@ export default function ShareTargetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bgBase text-textPrimary p-4 md:p-8 font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-bgBase text-textPrimary p-4 md:p-8 font-ui">
       <div className="max-w-2xl mx-auto pt-10 pb-20">
         
         {/* Header */}
@@ -124,12 +124,13 @@ export default function ShareTargetPage() {
               <Upload className="text-accent w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-display font-bold tracking-tight text-white">Incoming Share</h1>
+              <h1 className="text-2xl font-display font-bold tracking-tight text-textPrimary">Incoming Share</h1>
               <p className="text-textGhost text-xs font-mono uppercase tracking-widest">Source: External System</p>
             </div>
           </div>
           <button 
             onClick={() => navigate('/dash')}
+            aria-label="Close incoming share"
             className="p-2 hover:bg-bgCard rounded-sm border border-transparent hover:border-borderBase transition-all"
           >
             <X className="w-6 h-6 text-textSecondary" />
@@ -147,7 +148,7 @@ export default function ShareTargetPage() {
             {sharedData.title && (
               <div>
                 <label className="text-[10px] text-textGhost font-mono uppercase block mb-1">Title</label>
-                <div className="text-lg font-medium text-white">{sharedData.title}</div>
+                <div className="text-lg font-medium break-words text-textPrimary">{sharedData.title}</div>
               </div>
             )}
             
@@ -202,13 +203,13 @@ export default function ShareTargetPage() {
                 : 'bg-bgCard border-borderBase hover:border-borderActive'
               }`}
             >
-              <div className={`w-12 h-12 rounded-sm flex items-center justify-center border ${
+              <div className={`shrink-0 w-12 h-12 rounded-sm flex items-center justify-center border ${
                 selectedDestination?.type === 'cloud' ? 'bg-accent text-white border-accent' : 'bg-bgBase text-textGhost border-borderBase'
               }`}>
                 <HardDrive className="w-6 h-6" />
               </div>
-              <div className="flex-1">
-                <div className="font-display font-bold text-white text-lg">My Personal Cloud</div>
+              <div className="flex-1 min-w-0 break-words">
+                <div className="font-ui font-bold text-textPrimary text-lg">My Personal Cloud</div>
                 <div className="text-xs text-textGhost">Save as a persistent asset in your private vault</div>
               </div>
               {selectedDestination?.type === 'cloud' && <Check className="text-accent" />}
@@ -228,13 +229,13 @@ export default function ShareTargetPage() {
                       : 'bg-bgCard border-borderBase hover:border-borderActive'
                     }`}
                   >
-                    <div className={`w-12 h-12 rounded-sm flex items-center justify-center border ${
+                    <div className={`shrink-0 w-12 h-12 rounded-sm flex items-center justify-center border ${
                       selectedDestination?.id === room.id ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-bgBase text-textGhost border-borderBase'
                     }`}>
                       <Ghost className="w-6 h-6" />
                     </div>
-                    <div className="flex-1">
-                      <div className="font-display font-bold text-white text-lg">Tunnel: {room.token}</div>
+                    <div className="flex-1 min-w-0 break-words">
+                      <div className="font-ui font-bold text-textPrimary text-lg">Tunnel: {room.token}</div>
                       <div className="text-xs text-textGhost italic">{room.note || 'No description provided'}</div>
                     </div>
                     {selectedDestination?.id === room.id && <Check className="text-cyan-500" />}

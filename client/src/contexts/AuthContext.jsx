@@ -44,8 +44,8 @@ export function AuthProvider({ children }) {
     return { data, error };
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = async (options) => {
+    await supabase.auth.signOut(options);
   };
 
   return (

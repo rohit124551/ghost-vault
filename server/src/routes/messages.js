@@ -10,9 +10,21 @@ const express = require('express');
 const router = express.Router({ mergeParams: true });
 const supabase = require('../lib/supabase');
 const requireOwner = require('../middleware/requireOwner');
+const {removeTransfer} = require('../lib/temporaryFiles');
 const roomAccess = require('../middleware/roomAccess');
 const { broadcastRoomEvent } = require('../lib/roomEvents');
 router.use(roomAccess);
+
+// Express runs this only for routes with a message ID, after room access is established.
+router.param('id', async (req, res, next, id) => {
+  try {
+    const { data, error } = await supabase.from('messages').select('id')
+      .eq('id', id).eq('room_id', req.room.id).maybeSingle();
+    if (error) return next(error);
+    if (!data) return res.status(404).json({ error: 'Message not found' });
+    next();
+  } catch (error) { next(error); }
+});
 const { roomFileUpload, deleteFromCloudinary } = require('../lib/cloudinary');
 
 // Resolve room_id from token (shared helper)
@@ -166,6 +178,7 @@ router.post('/text', async (req, res, next) => {
 // POST /api/rooms/:token/messages/file — upload file to Cloudinary + save message
 router.post('/file', (req, res, next) => {
   roomFileUpload.single('file')(req, res, async (err) => {
+    if (err?.code === 'LIMIT_FILE_SIZE') return res.status(413).json({error:'Use a temporary transfer for files over 10 MiB'});
     if (err) return next(err);
     try {
       const room = await getRoomByToken(req.params.token);
@@ -297,6 +310,7 @@ router.post('/:id/burn', async (req, res, next) => {
       .eq('id', id).eq('room_id', req.room.id);
     if (error) throw error;
 
+
     // Emit socket event to notify guests and owner in real-time
     const io = req.app.get('io');
     await broadcastRoomEvent(io, token, 'message_burned', { id, roomToken: token });
@@ -320,7 +334,7 @@ router.post('/batch-delete', requireOwner, async (req, res, next) => {
     // 1. Fetch messages first to clean up any Cloudinary files
     const { data: msgs, error: fetchErr } = await supabase
       .from('messages')
-      .select('id, file_url, file_name, type')
+      .select('*')
       .in('id', ids)
       .eq('room_id', req.room.id);
 
@@ -349,6 +363,8 @@ router.post('/batch-delete', requireOwner, async (req, res, next) => {
 
     if (error) throw error;
 
+    await Promise.all((msgs || []).map(msg => removeTransfer(msg.transfer)));
+
     // 3. Emit real-time socket events
     const io = req.app.get('io');
     await broadcastRoomEvent(io, token, 'messages_batch_deleted', { ids, roomToken: token });
@@ -370,7 +386,7 @@ router.delete('/:id', requireOwner, async (req, res, next) => {
     // Fetch message first to get file_url
     const { data: msg, error: fetchErr } = await supabase
       .from('messages')
-      .select('file_url, file_name, type')
+      .select('*')
       .eq('id', id).eq('room_id', req.room.id)
       .single();
       
@@ -401,6 +417,7 @@ router.delete('/:id', requireOwner, async (req, res, next) => {
     const io = req.app.get('io');
     await broadcastRoomEvent(io, token, 'message_deleted', { id, roomToken: token });
 
+    await removeTransfer(msg?.transfer);
     res.json({ success: true });
   } catch (err) {
     next(err);

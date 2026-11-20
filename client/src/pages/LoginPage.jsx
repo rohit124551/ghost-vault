@@ -37,7 +37,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bgBase text-textPrimary flex flex-col items-center justify-center relative overflow-hidden font-ui">
+    <div className="min-h-screen bg-bgBase text-textPrimary flex flex-col items-center justify-center relative px-4 pt-24 pb-8 font-ui">
       
       {/* Background Cyber Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
@@ -58,7 +58,7 @@ export default function LoginPage() {
       </button>
 
       {/* Login Terminal Card */}
-      <div className="w-full max-w-md bg-bgCard border border-borderBase shadow-2xl relative z-10 p-8 rounded-sm hover-glitch">
+      <div className="w-full max-w-md bg-bgCard border border-borderBase shadow-2xl relative z-10 p-5 sm:p-8 rounded-sm hover-glitch">
         
         {/* Terminal Header */}
         <div className="flex flex-col gap-2 border-b border-borderBase pb-4 mb-8">
@@ -69,7 +69,7 @@ export default function LoginPage() {
             <ShieldAlert size={16} className="text-textGhost animate-pulse" />
           </div>
           <div className="flex items-center gap-2 text-[10px] font-mono text-textGhost uppercase tracking-widest">
-            <span>CLIENT_IP: <span className="text-textSecondary">{clientIp}</span></span>
+            <span className="min-w-0 break-all">CLIENT_IP: <span className="text-textSecondary">{clientIp}</span></span>
             <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></div>
           </div>
         </div>

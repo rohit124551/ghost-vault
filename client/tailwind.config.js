@@ -25,9 +25,9 @@ export default {
         danger: '#ef4444',
       },
       fontFamily: {
-        display: ['Inter', 'system-ui', 'sans-serif'],
-        ui: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        display: ['var(--font-display)'],
+        ui: ['var(--font-ui)'],
+        mono: ['var(--font-mono)'],
       }
     },
   },

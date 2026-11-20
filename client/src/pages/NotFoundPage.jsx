@@ -12,7 +12,7 @@ export default function NotFoundPage() {
   const token = location.state?.token;
 
   const title = isRoomLink ? (
-    <>Tunnel {token && <span className="text-danger font-mono tracking-widest">{token}</span>} Destroyed</>
+    <>Tunnel {token && <span className="text-danger font-mono tracking-widest break-all">{token}</span>} Destroyed</>
   ) : '404 — Not Found';
 
   const subtitle = isRoomLink
@@ -34,7 +34,7 @@ export default function NotFoundPage() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-bgBase text-textPrimary flex flex-col items-center justify-center relative overflow-hidden font-ui p-6">
+    <div className="min-h-screen bg-bgBase text-textPrimary flex flex-col items-center justify-center relative overflow-hidden font-ui px-6 pt-20 pb-6">
       
       {/* Background grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808010_1px,transparent_1px),linear-gradient(to_bottom,#80808010_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />

@@ -15,7 +15,16 @@ async function requireOwner(req, res, next) {
   }
 
   const token = authHeader.split(' ')[1];
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  let result;
+  try {
+    result = await supabase.auth.getUser(token);
+  } catch (err) {
+    return next(err);
+  }
+  const {data: {user}, error} = result;
+  if (error && (error.status >= 500 || error.status === 429 || error.name === 'AuthRetryableFetchError')) {
+    return res.status(503).json({error:'Authentication service temporarily unavailable'});
+  }
 
   if (error || !user) {
     return res.status(401).json({ error: 'Invalid or expired token' });

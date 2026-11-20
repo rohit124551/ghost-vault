@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { Sun, Moon, Timer, Bug, Send, X, Mail, Infinity } from 'lucide-react';
+import { Send, X, Mail } from 'lucide-react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import ChatWindow from '../components/ChatWindow';
-import GhostLogo from '../components/GhostLogo';
 import './GuestRoomPage.css';
 import useDialogAccessibility from '../hooks/useDialogAccessibility';
 
@@ -135,6 +134,10 @@ function BugReportModal({ token, onClose }) {
 
 export default function GuestRoomPage() {
   const { token } = useParams();
+  return <GuestRoom key={token} token={token}/>;
+}
+
+function GuestRoom({ token }) {
   const navigate  = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
@@ -149,7 +152,9 @@ export default function GuestRoomPage() {
 
   // Validate token + load history
   useEffect(() => {
-    axios.get(`${API_URL}/api/rooms/${token}/valid`)
+    const controller = new AbortController();
+    const options = {signal:controller.signal};
+    axios.get(`${API_URL}/api/rooms/${token}/valid`, options)
       .then(async res => {
         if (!res.data.valid || res.data.isPaused) {
           return navigate('/404', { replace: true, state: { reason: 'revoked', token } });
@@ -162,12 +167,13 @@ export default function GuestRoomPage() {
         // Load message history
         setChatLoad(true);
         try {
-          const hist = await axios.get(`${API_URL}/api/rooms/${token}/messages`);
+          const hist = await axios.get(`${API_URL}/api/rooms/${token}/messages`, options);
           setMessages(hist.data || []);
         } catch { /* ignore */ }
         finally { setChatLoad(false); }
       })
-      .catch(() => navigate('/404', { replace: true, state: { reason: 'revoked', token } }));
+      .catch(() => {if (!controller.signal.aborted) navigate('/404', { replace: true, state: { reason: 'revoked', token } });});
+    return () => controller.abort();
   }, [token, navigate]);
 
   // Real-time expiry timer
@@ -353,67 +359,14 @@ export default function GuestRoomPage() {
   return (
     <div className="guest-root">
       <div className="guest-vault-container">
-        {/* ── Branded Header ── */}
-        <div className="guest-chat-header flex items-center justify-between px-4 py-3 bg-bgCard border-b border-borderBase shrink-0">
-          {/* Brand */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <GhostLogo className="w-5 h-5 text-accent shrink-0" />
-            <div className="min-w-0">
-              <div className="font-display font-bold text-sm text-textPrimary leading-tight tracking-wide">GhostVault</div>
-              <div className="font-mono text-[9px] text-accent uppercase tracking-widest leading-none hidden sm:block">Secure Tunnel</div>
-            </div>
-          </div>
-
-          {/* Meta */}
-          <div className="guest-chat-actions flex items-center gap-2 shrink-0">
-            {timeLeft && (
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-sm border text-[10px] font-mono font-bold ${
-                timeLeft === 'Infinite'
-                  ? 'border-borderBase text-textGhost'
-                  : 'border-accent/30 text-accent bg-accent/5'
-              }`}>
-                <Timer size={10} /> {timeLeft}
-              </div>
-            )}
-            <div className="flex items-center gap-1 px-2 py-1 bg-bgBase border border-borderBase rounded-sm">
-              <span className="text-[9px] font-mono text-textSecondary uppercase tracking-widest hidden sm:inline">Room</span>
-              <span className="guest-room-token text-[10px] font-mono text-accent font-bold tracking-widest" title={token}>{token}</span>
-            </div>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-success font-mono uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse"/>
-              <span className="hidden sm:inline">Live</span>
-            </div>
-            {/* Bug report — lives in header, always accessible */}
-            <button
-              className="w-7 h-7 flex items-center justify-center rounded-sm border-borderBase bg-bgBase text-textGhost hover:text-accent hover:border-accent/30 hover:bg-accent/10 transition-all"
-              onClick={() => setShowBugModal(true)}
-              title="Report a bug"
-              aria-label="Report a Bug"
-            >
-              <Bug size={13} />
-            </button>
-            <button
-              className="w-7 h-7 flex items-center justify-center rounded-sm border border-borderBase text-textGhost hover:text-textPrimary hover:bg-bgHover transition-colors"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            >
-              {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Room note */}
-        {note && (
-          <div className="guest-purpose px-4 py-2.5 border-b border-borderBase bg-bgBase/60 flex items-center justify-center gap-2">
-            <span className="text-[10px] font-mono font-bold text-textGhost uppercase tracking-widest">Purpose:</span>
-            <span className="text-xs text-textSecondary font-ui">{note}</span>
-          </div>
-        )}
-
-        {/* ── Chat Container ── */}
         <div className="guest-chat-wrapper">
           <ChatWindow
-            key={token}
+            key={token} roomTitle={note || token}
+            roomActions={<>
+              {timeLeft && <small>Room expiry · {timeLeft}</small>}
+              <button onClick={() => setShowBugModal(true)}>Report a bug</button>
+              <button onClick={toggleTheme}>Use {theme === 'dark' ? 'light' : 'dark'} theme</button>
+            </>}
             socket={socket} token={token} updateMessages={setMessages} audience="shared"
             messages={messages}
             onSendText={handleSendText}

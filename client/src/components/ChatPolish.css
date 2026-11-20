@@ -144,3 +144,58 @@
 .message-options-emoji {display:grid;grid-template-columns:repeat(3,1fr)}
 .message-options-emoji button {padding:5px;border-radius:6px}
 @media (pointer:coarse) {.message-options-menu button {min-height:44px}}
+
+.chat-tools {min-height:50px;gap:8px;justify-content:flex-start}
+.chat-tools > svg {flex:none;color:var(--text-secondary)}
+.room-heading {flex:1;min-width:0;display:grid;line-height:1.3}
+.room-heading strong,.room-heading small {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-heading strong {font-size:14px}
+.room-heading small {font-size:11px;color:var(--text-secondary)}
+.chat-tools .hidden {display:none}
+@media(min-width:768px){.chat-tools .md\:hidden {display:none}.chat-tools .md\:flex {display:flex}}
+.chat-tool-panel {top:50px}
+.room-menu button {display:flex;align-items:center;gap:7px;width:100%;text-align:left;padding:8px;border-radius:6px;font-size:13px}
+.room-menu button:hover,.composer-options button:hover {background:var(--bg-hover)}
+.chat-window[data-audience=personal] .bubble-row--right {flex-direction:row}
+.chat-window[data-audience=personal] .bubble--mine {border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);box-shadow:none}
+.chat-window[data-audience=personal] .bubble--mine :is(.bubble-text,.chat-link) {color:var(--text-primary)}
+.chat-window[data-audience=personal] .bubble-time-float {color:var(--text-secondary)}
+.chat-window[data-audience=personal] :is(.image-mosaic.mine,.pending-bubble) {margin-left:0;align-self:flex-start}
+.chat-window[data-audience=personal] .bubble--mine .quick-reactions {left:0;right:auto}
+.attachment-thumbnail {height:40px;width:48px;object-fit:contain;background:var(--bg-base);border-radius:4px}
+.unread-divider {color:var(--accent);font-size:12px;border-top:1px solid var(--border-active);padding:6px 16px}
+.mobile-composer-tools {display:none;position:relative}
+@container chat (max-width:700px){
+  .chat-input-wrapper :is(.desktop-attach,.chat-timer-toggle){display:none}
+  .mobile-composer-tools {display:block}
+  .mobile-composer-tools>button {width:36px;height:36px;font-size:22px;color:var(--text-secondary)}
+  .composer-options {position:absolute;bottom:100%;left:0;width:200px;padding:5px;background:var(--bg-card);border:1px solid var(--border-active);border-radius:10px}
+  .composer-options button {padding:8px;text-align:left;display:block;width:100%;font-size:13px}
+}
+
+.pending-bubble small {font-size:11px;justify-self:end}
+.pending-bubble button {justify-self:end;color:var(--accent);font-weight:600}
+@media (max-width:767px), (hover:none) and (pointer:coarse) {
+  .room-menu .shortcut-action {display:none}
+  .chat-tools .room-options-trigger {
+    width:44px;height:44px;border:1px solid var(--border);background:var(--bg-base);border-radius:12px;
+  }
+  .room-options-trigger[aria-expanded=true] {color:var(--accent)}
+  .room-options-panel {width:min(270px,calc(100% - 16px));padding:8px;border-radius:14px}
+  .room-options-panel .panel-close {display:none}
+  .room-menu button {min-height:44px;padding:10px 12px;gap:10px;font-size:14px}
+  .room-menu > div:not(:empty) {border-top:1px solid var(--border);margin-top:4px;padding-top:4px}
+  .bubble-row > .message-options-trigger svg {background:var(--bg-card);border:1px solid var(--border);width:28px;height:28px}
+}
+
+.transfer-card {display:grid;gap:6px;min-width:0;overflow-wrap:anywhere}
+.transfer-card small {font-size:12px}
+.transfer-card button,.transfer-primary {display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 14px;border-radius:9px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-active)}
+.transfer-dialog {position:fixed;inset:0;margin:auto;width:min(360px,calc(100% - 32px));max-height:85dvh;padding:20px;color:var(--text-primary);background:var(--bg-card);border:1px solid var(--border-active);border-radius:14px;box-shadow:var(--shadow-lg);text-align:left}
+.transfer-dialog::backdrop {background:rgb(0 0 0 / .55)}
+.transfer-dialog header,.transfer-dialog label {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.transfer-dialog header button {display:grid;place-items:center;width:40px;height:40px}
+.transfer-dialog form,.transfer-dialog label {display:grid;gap:8px}
+.transfer-dialog p {font-size:14px;color:var(--text-secondary);margin:8px 0 12px}
+.transfer-dialog input,.transfer-dialog select {width:100%;padding:8px;border:1px solid var(--border-active);border-radius:7px;color:var(--text-primary);background:var(--bg-base)}
+.transfer-dialog .transfer-primary {margin-top:8px;background:var(--accent);color:var(--bg-base)}

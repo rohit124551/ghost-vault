@@ -6,9 +6,10 @@ export const guestApi = axios.create({baseURL: api.defaults.baseURL});
 
 const TYPING_INTERVAL_MS = 4000;
 
-export function useChatActivity({socket, token, myRole, messages, updateMessages, shared, loading}) {
+export function useChatActivity({socket, token, myRole, messages, updateMessages, shared, loading, chatRoot, threadId, category}) {
   const [peerTyping, setPeerTyping] = useState(false);
   const [visible, setVisible] = useState(!document.hidden);
+  const [readIds, setReadIds] = useState(() => new Set());
   const timer = useRef();
   const typingUntil = useRef(0);
   const roomSocket = useRef(null);
@@ -62,6 +63,18 @@ export function useChatActivity({socket, token, myRole, messages, updateMessages
   }, [shared, token]);
 
   useEffect(() => {
+    if (!shared || !visible || loading) return;
+    const observer = new IntersectionObserver(entries => {
+      if (document.hidden) return;
+      const ids = entries.filter(e => e.isIntersecting && e.intersectionRect.height > 0 &&
+        e.intersectionRect.width > 0).map(e => e.target.dataset.receiptId);
+      if (ids.length) setReadIds(previous => ids.every(id => previous.has(id)) ? previous : new Set([...previous, ...ids]));
+    });
+    chatRoot.current?.querySelectorAll('[data-receipt-id]').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, [chatRoot, messages, threadId, category, shared, visible, loading]);
+
+  useEffect(() => {
     if (!shared || loading) return;
     let cancelled = false;
     let retry;
@@ -69,7 +82,7 @@ export function useChatActivity({socket, token, myRole, messages, updateMessages
       try {
         for (const seen of [true, false]) {
           const ids = (messages || []).filter(m => m.sender === (myRole === 'owner' ? 'guest' : 'owner') &&
-            (seen ? visible && !m.burn_after_seconds && !m.seen_at : !m.delivered_at && (!visible || m.burn_after_seconds))
+            (seen ? visible && readIds.has(m.id) && !m.burn_after_seconds && !m.seen_at : !m.delivered_at && !(visible && readIds.has(m.id) && !m.burn_after_seconds))
           ).map(m => m.id);
           for (let i = 0; i < ids.length && !cancelled; i += 100) {
             const batch = ids.slice(i, i + 100);
@@ -81,7 +94,7 @@ export function useChatActivity({socket, token, myRole, messages, updateMessages
     }
     const delay = setTimeout(acknowledge, 120);
     return () => {cancelled = true; clearTimeout(delay); clearTimeout(retry);};
-  }, [apiClient, messages, myRole, token, shared, loading, visible, updateMessages]);
+  }, [apiClient, messages, myRole, token, shared, loading, visible, readIds, updateMessages]);
 
   function input(active) {
     if (!shared) return;

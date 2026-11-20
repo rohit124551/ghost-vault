@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS messages (
   sender      TEXT NOT NULL,       -- 'guest' or 'owner'
   type        TEXT NOT NULL,       -- 'text' | 'image' | 'file'
   content     TEXT,                -- text message content
+  transfer    JSONB,               -- temporary file request or receipt
   file_url    TEXT,                -- Cloudinary URL
   file_name   TEXT,
   file_size   BIGINT,
